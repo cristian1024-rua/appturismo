@@ -1,0 +1,44 @@
+name: appturismo
+description: "A new Flutter project."
+
+publish_to: 'none' # Evita publicar en pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  appwrite: ^16.0.0
+  get: ^4.6.5
+  geolocator: ^10.1.0
+  shared_preferences: ^2.5.3
+  image_picker: ^1.1.0 # <--- AÑADIDO: Para seleccionar y tomar fotos
+  
+  # Solo este paquete para mapas:
+  Maps_flutter: ^2.12.1
+
+  flutter_dotenv: ^5.2.1
+  http: ^1.4.0
+  get_storage: ^2.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  # 🔽🔽🔽 ¡¡¡ASEGÚRATE DE QUE ESTA SECCIÓN ESTÉ ASÍ!!! 🔽🔽🔽
+  assets:
+    - .env # Asegúrate de que esta línea esté aquí y bien indentada (4 espacios)
+  # 🔼🔼🔼 ¡¡¡FIN DE LA SECCIÓN!!! 🔼🔼🔼
+
+dependency_overrides:
+  flutter_web_auth_2: ^4.1.0
+  flutter_web_auth_2_platform_interface: ^4.1.0
