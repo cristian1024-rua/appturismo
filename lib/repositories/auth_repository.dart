@@ -1,80 +1,106 @@
-// lib/repositories/auth_repository.dart
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
+import 'package:appwrite/models.dart' as models;
+import 'package:get/get.dart';
+import 'package:appturismo/core/constants/appwrite_constants.dart';
 
-class AuthRepository {
-  final Account _account;
+class AuthRepository extends GetxService {
+  late final Account _account;
+  final Rxn<models.User> user = Rxn<models.User>();
+  final RxBool isLoading = false.obs;
 
-  AuthRepository(this._account);
-
-  Future<User?> getCurrentUser() async {
-    try {
-      return await _account.get();
-    } on AppwriteException catch (e) {
-      // Si el error es 401 (Unauthorized), significa que no hay usuario logueado.
-      if (e.code == 401) {
-        return null;
-      }
-      print('AuthRepository: Error getting current user: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('AuthRepository: Unknown error getting current user: $e');
-      rethrow;
-    }
+  @override
+  void onInit() {
+    super.onInit();
+    final client =
+        Client()
+          ..setEndpoint(AppwriteConstants.endpoint)
+          ..setProject(AppwriteConstants.projectId)
+          ..setSelfSigned(status: true);
+    _account = Account(client);
+    _loadCurrentUser();
   }
 
-  Future<void> login(String email, String password) async {
+  Future<models.User?> register({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
     try {
-      await _account.createEmailSession(email: email, password: password);
-    } on AppwriteException catch (e) {
-      print('AuthRepository: Login failed: ${e.message}');
-      throw Exception('Inicio de sesión fallido: ${e.message}');
-    } catch (e) {
-      print('AuthRepository: Unknown login error: $e');
-      throw Exception('Error desconocido al iniciar sesión.');
-    }
-  }
-
-  Future<void> register(String email, String password, String name) async {
-    try {
-      await _account.create(
+      isLoading.value = true;
+      final newUser = await _account.create(
         userId: ID.unique(),
         email: email,
         password: password,
         name: name,
       );
-      // Opcional: iniciar sesión automáticamente después del registro
-      await login(email, password);
+      await _account.createEmailPasswordSession(
+        email: email,
+        password: password,
+      );
+      user.value = await _account.get();
+      return newUser;
     } on AppwriteException catch (e) {
-      print('AuthRepository: Registration failed: ${e.message}');
-      throw Exception('Registro fallido: ${e.message}');
+      Get.snackbar('Error al registrarse', e.message ?? e.toString());
+      return null;
     } catch (e) {
-      print('AuthRepository: Unknown registration error: $e');
-      throw Exception('Error desconocido al registrarse.');
+      Get.snackbar('Error inesperado', e.toString());
+      return null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> login({required String email, required String password}) async {
+    try {
+      isLoading.value = true;
+      await _account.createEmailPasswordSession(
+        email: email,
+        password: password,
+      );
+      user.value = await _account.get();
+      return true;
+    } on AppwriteException catch (e) {
+      Get.snackbar('Error al iniciar sesión', e.message ?? e.toString());
+      return false;
+    } catch (e) {
+      Get.snackbar('Error inesperado', e.toString());
+      return false;
+    } finally {
+      isLoading.value = false;
     }
   }
 
   Future<void> logout() async {
     try {
-      // Primero, verifica si hay una sesión activa para cerrar.
-      // Si getCurrentUser() devuelve null, no hay sesión activa y no hay nada que cerrar.
-      final User? currentUser = await getCurrentUser();
-      if (currentUser != null) {
-        await _account.deleteSession(sessionId: 'current');
-      } else {
-        print('AuthRepository: No active session to logout.');
-      }
-    } on AppwriteException catch (e) {
-      // Maneja errores específicos si aún así ocurre algo
-      print('AuthRepository: Logout failed: ${e.message}');
-      throw Exception('Error al cerrar sesión: ${e.message}');
-    } catch (e) {
-      print('AuthRepository: Unknown logout error: $e');
-      throw Exception('Error desconocido al cerrar sesión.');
+      await _account.deleteSession(sessionId: 'current');
+    } catch (_) {}
+    user.value = null;
+  }
+
+  Future<bool> isLoggedIn() async {
+    try {
+      await _account.get();
+      return true;
+    } catch (_) {
+      return false;
     }
   }
-}
 
-extension on Account {
-  createEmailSession({required String email, required String password}) {}
+  Future<void> _loadCurrentUser() async {
+    if (await isLoggedIn()) {
+      try {
+        user.value = await _account.get();
+      } catch (_) {
+        user.value = null;
+      }
+    }
+  }
+
+  Future<models.User?> getCurrentUser() async {
+    try {
+      return await _account.get();
+    } catch (_) {
+      return null;
+    }
+  }
 }

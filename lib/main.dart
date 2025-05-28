@@ -1,138 +1,109 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:get_storage/get_storage.dart';
 
-// Importa tus servicios
-import 'services/appwrite_service.dart';
-import 'services/location_service.dart';
-import 'services/image_ai_service.dart';
+import 'package:appturismo/services/appwrite_client.dart' as AppwriteClient;
+import 'package:appturismo/core/constants/appwrite_constants.dart';
+import 'package:appwrite/appwrite.dart';
 
-// Importa tus repositorios
-import 'repositories/auth_repository.dart';
-import 'repositories/user_repository.dart';
-import 'repositories/place_repository.dart';
-import 'repositories/comment_repository.dart';
-import 'repositories/favorites_repository.dart';
-import 'repositories/theme_repository.dart';
+// Repos y Ctrl
+import 'package:appturismo/repositories/auth_repository.dart';
+import 'package:appturismo/repositories/place_repository.dart';
+import 'package:appturismo/repositories/storage_repository.dart';
+import 'package:appturismo/repositories/favorites_repository.dart';
+import 'package:appturismo/repositories/comment_repository.dart';
 
-// Importa tus controladores
-import 'controllers/auth_controller.dart';
-import 'controllers/user_controller.dart';
-import 'controllers/place_controller.dart';
-import 'controllers/comment_controller.dart';
-import 'controllers/favorites_controller.dart';
-import 'controllers/map_controller.dart';
-import 'controllers/theme_controller.dart';
+import 'package:appturismo/controllers/auth_controller.dart';
+import 'package:appturismo/controllers/location_controller.dart';
+import 'package:appturismo/controllers/place_controller.dart';
+import 'package:appturismo/controllers/favorites_controller.dart';
+import 'package:appturismo/controllers/comment_controller.dart';
+import 'package:appturismo/controllers/map_controller.dart';
 
-// Importa tus pantallas
-import 'screens/splash_screen.dart';
-import 'screens/places_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/favorites_screen.dart';
-import 'screens/map_screen.dart';
-import 'screens/add_place_screen.dart';
-import 'screens/home_screen.dart'; // Si usas esta pantalla para gestión de usuarios
+// Pantallas
+import 'package:appturismo/screens/splash_screen.dart';
+import 'package:appturismo/screens/login_screen.dart';
+import 'package:appturismo/screens/register_screen.dart';
+import 'package:appturismo/screens/places_screen.dart';
+import 'package:appturismo/screens/add_place_screen.dart';
+import 'package:appturismo/screens/place_detail_screen.dart';
+import 'package:appturismo/screens/map_screen.dart';
+import 'package:appturismo/screens/favorites_screen.dart';
+import 'package:appturismo/screens/profile_screen.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('main: WidgetsFlutterBinding inicializado.');
+  await GetStorage.init();
 
-  try {
-    await dotenv.load(fileName: ".env");
-    print('main: Variables de entorno (.env) cargadas correctamente.');
-  } catch (e) {
-    print('main: ERROR CRÍTICO al cargar .env: $e');
-    // Considera una alerta o salida controlada si el .env es esencial
-  }
+  AppwriteClient.client
+      .setEndpoint(AppwriteConstants.endpoint)
+      .setProject(AppwriteConstants.projectId)
+      .setSelfSigned(status: true);
 
-  // 1. Inicializar y registrar AppwriteService primero
-  print('main: Registrando AppwriteService...');
-  final AppwriteService appwriteService = AppwriteService();
-  Get.put(appwriteService);
-  print('main: AppwriteService registrado.');
+  final db = Databases(AppwriteClient.client);
+  final storage = Storage(AppwriteClient.client);
 
-  // 2. Registrar otros servicios
-  print('main: Registrando LocationService...');
-  Get.put(LocationService());
-  print('main: LocationService registrado.');
+  // Repos
+  Get.lazyPut(() => AuthRepository(), fenix: true);
+  Get.lazyPut(() => PlaceRepository(db), fenix: true);
+  Get.lazyPut(
+    () => StorageRepository(storage, bucketId: AppwriteConstants.bucketId),
+    fenix: true,
+  );
+  Get.lazyPut(() => FavoritesRepository(db), fenix: true);
+  Get.lazyPut(() => CommentRepository(db), fenix: true);
 
-  print('main: Registrando ImageAIService...');
-  Get.put(ImageAIService());
-  print('main: ImageAIService registrado.');
+  // Ctrl
+  Get.lazyPut(() => AuthController(), fenix: true);
+  Get.lazyPut(() => LocationController(), fenix: true);
+  Get.lazyPut(() => PlaceController(Get.find()), fenix: true);
+  Get.lazyPut(() => FavoritesController(Get.find()), fenix: true);
+  Get.lazyPut(() => CommentController(Get.find()), fenix: true);
+  Get.lazyPut(() => MapController(), fenix: true);
 
-  // 3. Inicializar y registrar repositorios
-  print('main: Registrando repositorios...');
-  final authRepo = AuthRepository(appwriteService.account);
-  // **** CORRECCIÓN AQUÍ ****
-  final userRepo = UserRepository(
-    repository: appwriteService.db,
-  ); // Asegúrate de que el constructor coincide
-  final placeRepo = PlaceRepository(appwriteService.db);
-  final commentRepo = CommentRepository(appwriteService.db);
-  final favoritesRepo = FavoritesRepository(appwriteService.db);
-  final themeRepo = ThemeRepository();
-
-  Get.put(authRepo);
-  Get.put(userRepo);
-  Get.put(placeRepo);
-  Get.put(commentRepo);
-  Get.put(favoritesRepo);
-  Get.put(themeRepo);
-  print('main: Repositorios registrados.');
-
-  // 4. Inicializar y registrar controladores
-  print('main: Registrando controladores...');
-  Get.put(AuthController(authRepo));
-  Get.put(UserController(repository: userRepo));
-  Get.put(PlaceController(placeRepo));
-  Get.put(CommentController(commentRepo));
-  Get.put(FavoritesController(favoritesRepo));
-  Get.put(MapController());
-  Get.put(ThemeController(themeRepo));
-  print('main: Controladores registrados.');
-
-  print('main: Iniciando runApp...');
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final ThemeController themeController = Get.find<ThemeController>();
-
-    return Obx(
-      () => GetMaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Turismo App',
-        theme: ThemeData(
-          primarySwatch: Colors.teal,
-          brightness: Brightness.light,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
+    final auth = Get.find<AuthController>();
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Turismo App',
+      theme: ThemeData(
+        primarySwatch: Colors.teal,
+        scaffoldBackgroundColor: Colors.grey[50],
+        cardColor: Colors.white,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
-        darkTheme: ThemeData(
-          primarySwatch: Colors.teal,
-          brightness: Brightness.dark,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        themeMode: themeController.themeMode.value,
-        initialRoute: '/splash',
-        getPages: [
-          GetPage(name: '/splash', page: () => const SplashPage()),
-          GetPage(name: '/login', page: () => const LoginScreen()),
-          GetPage(name: '/register', page: () => const RegisterScreen()),
-          GetPage(name: '/home', page: () => const PlacesScreen()),
-          GetPage(name: '/add', page: () => AddPlaceScreen()),
-          GetPage(name: '/map', page: () => MapScreen()),
-          GetPage(name: '/favorites', page: () => FavoritesScreen()),
-          GetPage(name: '/profile', page: () => const ProfileScreen()),
-          GetPage(name: '/users-management', page: () => const HomeScreen()),
-        ],
       ),
+      darkTheme: ThemeData.dark().copyWith(primaryColor: Colors.tealAccent),
+      themeMode: ThemeMode.system,
+      home: Obx(() {
+        if (auth.isLoading.value) return const SplashScreen();
+        return auth.isLoggedIn ? const PlacesScreen() : const LoginScreen();
+      }),
+      getPages: [
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(name: '/register', page: () => const RegisterScreen()),
+        GetPage(name: '/places', page: () => const PlacesScreen()),
+        GetPage(name: '/add', page: () => AddPlaceScreen()),
+        GetPage(
+          name: '/detail',
+          page: () => PlaceDetailScreen(place: Get.arguments),
+        ),
+        GetPage(name: '/map', page: () => MapScreen()),
+        GetPage(name: '/favorites', page: () => FavoritesScreen()),
+        GetPage(name: '/profile', page: () => const ProfileScreen()),
+      ],
     );
   }
 }

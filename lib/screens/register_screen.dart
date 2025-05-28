@@ -1,74 +1,87 @@
 // lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:appturismo/controllers/auth_controller.dart'; // Asegúrate de importar tu AuthController
+import 'package:appturismo/controllers/auth_controller.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthController authController = Get.find<AuthController>();
+  final nameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    emailCtrl.dispose();
+    passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _register() async {
+    await authController.register(
+      email: emailCtrl.text.trim(),
+      password: passCtrl.text,
+      name: nameCtrl.text.trim(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final AuthController authController = Get.find<AuthController>();
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
-
     return Scaffold(
       appBar: AppBar(title: const Text('Registrarse')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Nombre'),
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Nombre Completo'),
+              textCapitalization: TextCapitalization.words,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextField(
-              controller: emailController,
-              decoration: const InputDecoration(
-                labelText: 'Correo Electrónico',
-              ),
+              controller: emailCtrl,
+              decoration: const InputDecoration(labelText: 'Email'),
               keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextField(
-              controller: passwordController,
+              controller: passCtrl,
               decoration: const InputDecoration(labelText: 'Contraseña'),
               obscureText: true,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Obx(() {
-              // Corrección: usar authController.isLoading
-              return authController.isLoading.value
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                    onPressed: () {
-                      authController.register(
-                        emailController.text,
-                        passwordController.text,
-                        nameController.text,
-                      );
-                    },
-                    child: const Text('Registrarse'),
-                  );
+              final loading = authController.isLoading.value;
+              return SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: loading ? null : _register,
+                  child:
+                      loading
+                          ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                          : const Text('Registrarse'),
+                ),
+              );
             }),
-            const SizedBox(height: 16),
-            Obx(() {
-              // Corrección: usar authController.errorMessage
-              return authController.errorMessage.value.isNotEmpty
-                  ? Text(
-                    authController.errorMessage.value, // Corrección
-                    style: const TextStyle(color: Colors.red),
-                  )
-                  : const SizedBox.shrink();
-            }),
+            const SizedBox(height: 12),
             TextButton(
-              onPressed: () {
-                Get.back(); // Volver a la pantalla de login
-              },
-              child: const Text('¿Ya tienes cuenta? Iniciar Sesión'),
+              onPressed: () => Get.back(),
+              child: const Text('¿Ya tienes cuenta? Inicia Sesión'),
             ),
           ],
         ),

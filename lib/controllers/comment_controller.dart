@@ -1,27 +1,31 @@
+// lib/controllers/comment_controller.dart
 import 'package:get/get.dart';
 import 'package:appturismo/model/comment_model.dart';
 import 'package:appturismo/repositories/comment_repository.dart';
 
 class CommentController extends GetxController {
-  final CommentRepository _commentRepository;
+  final CommentRepository _repo = Get.find<CommentRepository>();
+
+  /// Lista de comentarios
   final RxList<CommentModel> comments = <CommentModel>[].obs;
+
+  /// Indicador de carga
   final RxBool isLoading = false.obs;
+
+  /// Mensaje de error
   final RxString error = ''.obs;
 
-  CommentController(this._commentRepository);
+  CommentController(
+    CommentRepository find,
+  ); // <-- Asegúrate de tener esta línea
 
   Future<void> fetchComments(String placeId) async {
     isLoading.value = true;
     error.value = '';
     try {
-      comments.value = await _commentRepository.getCommentsForPlace(placeId);
+      comments.value = await _repo.getCommentsForPlace(placeId);
     } catch (e) {
       error.value = e.toString();
-      Get.snackbar(
-        'Error al cargar comentarios',
-        error.value,
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } finally {
       isLoading.value = false;
     }
@@ -31,21 +35,10 @@ class CommentController extends GetxController {
     isLoading.value = true;
     error.value = '';
     try {
-      await _commentRepository.addComment(comment);
-      // Recargar comentarios para el mismo lugar después de añadir
-      fetchComments(comment.placeId);
-      Get.snackbar(
-        'Éxito',
-        'Comentario añadido',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      await _repo.addComment(comment);
+      await fetchComments(comment.placeId);
     } catch (e) {
       error.value = e.toString();
-      Get.snackbar(
-        'Error',
-        'No se pudo añadir el comentario',
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } finally {
       isLoading.value = false;
     }

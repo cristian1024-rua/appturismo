@@ -1,96 +1,44 @@
-// lib/repositories/favorites_repository.dart
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
-import 'package:appturismo/core/config/app_config.dart';
+import 'package:appturismo/core/constants/appwrite_constants.dart';
 
 class FavoritesRepository {
-  final Databases _databases;
-
-  FavoritesRepository(this._databases);
-
-  String get _databaseId => AppwriteConfig.appwriteDatabaseId;
-  String get _favoritesCollectionId => AppwriteConfig.favoritesCollectionId;
+  final Databases _db;
+  FavoritesRepository(this._db);
 
   Future<List<String>> getFavoritePlaceIds(String userId) async {
-    try {
-      final DocumentList response = await _databases.listDocuments(
-        databaseId: _databaseId,
-        collectionId: _favoritesCollectionId,
-        queries: [Query.equal('userId', userId)],
-      );
-      return response.documents
-          .map((doc) => doc.data['placeId'] as String)
-          .toList();
-    } on AppwriteException catch (e) {
-      print(
-        'FavoritesRepository: Error getting favorite place IDs: ${e.message}',
-      );
-      rethrow;
-    } catch (e) {
-      print(
-        'FavoritesRepository: Unknown error getting favorite place IDs: $e',
-      );
-      rethrow;
-    }
+    final res = await _db.listDocuments(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.collectionFavorites,
+      queries: [Query.equal('userId', userId)],
+    );
+    return res.documents.map((d) => d.data['placeId'] as String).toList();
   }
 
-  Future<void> addFavorite(String userId, String placeId) async {
-    try {
-      final existing = await _databases.listDocuments(
-        databaseId: _databaseId,
-        collectionId: _favoritesCollectionId,
-        queries: [
-          Query.equal('userId', userId),
-          Query.equal('placeId', placeId),
-        ],
-      );
-      if (existing.documents.isNotEmpty) {
-        return; // Ya es un favorito, no hacer nada
-      }
-
-      await _databases.createDocument(
-        databaseId: _databaseId,
-        collectionId: _favoritesCollectionId,
-        documentId: ID.unique(),
-        data: {'userId': userId, 'placeId': placeId},
-        permissions: [
-          Permission.read(Role.user(userId)),
-          Permission.write(Role.user(userId)),
-        ],
-      );
-    } on AppwriteException catch (e) {
-      print('FavoritesRepository: Error adding favorite: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('FavoritesRepository: Unknown error adding favorite: $e');
-      rethrow;
-    }
+  Future<void> addFavorite(String u, String pid) async {
+    await _db.createDocument(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.collectionFavorites,
+      documentId: ID.unique(),
+      data: {'userId': u, 'placeId': pid},
+      permissions: [
+        Permission.read(Role.user(u)),
+        Permission.write(Role.user(u)),
+      ],
+    );
   }
 
-  Future<void> removeFavorite(String userId, String placeId) async {
-    try {
-      final DocumentList docsToRemove = await _databases.listDocuments(
-        databaseId: _databaseId,
-        collectionId: _favoritesCollectionId,
-        queries: [
-          Query.equal('userId', userId),
-          Query.equal('placeId', placeId),
-        ],
+  Future<void> removeFavorite(String u, String pid) async {
+    final res = await _db.listDocuments(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.collectionFavorites,
+      queries: [Query.equal('userId', u), Query.equal('placeId', pid)],
+    );
+    if (res.documents.isNotEmpty) {
+      await _db.deleteDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.collectionFavorites,
+        documentId: res.documents.first.$id,
       );
-
-      if (docsToRemove.documents.isNotEmpty) {
-        await _databases.deleteDocument(
-          databaseId: _databaseId,
-          collectionId: _favoritesCollectionId,
-          documentId: docsToRemove.documents.first.$id,
-        );
-      }
-    } on AppwriteException catch (e) {
-      print('FavoritesRepository: Error removing favorite: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('FavoritesRepository: Unknown error removing favorite: $e');
-      rethrow;
     }
   }
 }

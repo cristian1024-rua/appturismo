@@ -1,31 +1,40 @@
-// lib/screens/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:appturismo/controllers/auth_controller.dart';
+import 'package:appwrite/appwrite.dart';
+import 'package:appturismo/core/constants/appwrite_constants.dart';
+import 'package:appturismo/screens/login_screen.dart';
+import 'package:appturismo/screens/places_screen.dart';
 
-class SplashPage extends StatefulWidget {
-  const SplashPage({super.key});
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
 
   @override
-  State<SplashPage> createState() => _SplashPageState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashPageState extends State<SplashPage> {
-  final AuthController _authController = Get.find<AuthController>();
+class _SplashScreenState extends State<SplashScreen> {
+  final client =
+      Client()
+        ..setEndpoint(AppwriteConstants.endpoint)
+        ..setProject(AppwriteConstants.projectId)
+        ..setSelfSigned(status: true);
+
+  late final Account account;
 
   @override
   void initState() {
     super.initState();
-    _navigateToNextScreen();
+    account = Account(client);
+    _checkSession();
   }
 
-  void _navigateToNextScreen() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (_authController.user.value != null) {
-      Get.offAllNamed('/home');
-    } else {
-      Get.offAllNamed('/login');
+  Future<void> _checkSession() async {
+    try {
+      // Si se obtiene el usuario, la sesión está activa
+      Get.off(() => const PlacesScreen());
+    } catch (e) {
+      // Si ocurre un error, no hay sesión activa
+      Get.off(() => const LoginScreen());
     }
   }
 

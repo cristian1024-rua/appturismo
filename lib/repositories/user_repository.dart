@@ -1,17 +1,21 @@
 // lib/repositories/user_repository.dart
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart';
-import 'package:appturismo/core/config/app_config.dart';
+// Ya NO necesitas importar 'package:appturismo/core/config/app_config.dart' aquí.
 
 class UserRepository {
   final Databases _databases;
+  final String _databaseId;
+  final String _usersCollectionId;
 
-  UserRepository({required Databases repository}) : _databases = repository;
-
-  String get _databaseId => AppwriteConfig.appwriteDatabaseId;
-  String get _usersCollectionId =>
-      AppwriteConfig
-          .usersCollectionId; // Asume que tienes una colección para perfiles de usuario
+  // CONSTRUCTOR CORRECTO
+  // Recibe la instancia de Databases y los IDs directamente
+  UserRepository(
+    this._databases, {
+    required String databaseId,
+    required String usersCollectionId,
+  }) : _databaseId = databaseId,
+       _usersCollectionId = usersCollectionId;
 
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
@@ -58,7 +62,6 @@ class UserRepository {
     }
   }
 
-  // **** MÉTODOS AÑADIDOS PARA SOPORTAR USERCONTROLLER Y HOMESCREEN ****
   Future<List<Document>> getAllUsers() async {
     try {
       final DocumentList result = await _databases.listDocuments(
@@ -80,19 +83,14 @@ class UserRepository {
 
   Future<Document> addUser(Map<String, dynamic> userData) async {
     try {
-      // Asume que el `userData` incluye 'userId', 'name', 'email'
-      final String newUserId =
-          userData['userId'] ??
-          ID.unique(); // Usar userId si viene, o generar uno nuevo
+      final String newUserId = userData['userId'] ?? ID.unique();
       return await _databases.createDocument(
         databaseId: _databaseId,
         collectionId: _usersCollectionId,
         documentId: newUserId,
         data: userData,
         permissions: [
-          Permission.read(
-            Role.any(),
-          ), // O solo Role.user() si es un perfil público
+          Permission.read(Role.any()),
           Permission.write(Role.user(newUserId)),
         ],
       );
@@ -140,6 +138,4 @@ class UserRepository {
       rethrow;
     }
   }
-
-  // **** FIN MÉTODOS AÑADIDOS ****
 }

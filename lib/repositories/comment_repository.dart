@@ -1,57 +1,30 @@
-// lib/repositories/comment_repository.dart
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
-import 'package:appturismo/core/config/app_config.dart';
+import 'package:appturismo/core/constants/appwrite_constants.dart';
 import 'package:appturismo/model/comment_model.dart';
 
 class CommentRepository {
-  final Databases _databases;
+  final Databases _db;
+  CommentRepository(this._db);
 
-  CommentRepository(this._databases);
-
-  String get _databaseId => AppwriteConfig.appwriteDatabaseId;
-  String get _commentsCollectionId => AppwriteConfig.commentsCollectionId;
-
-  Future<List<CommentModel>> getCommentsForPlace(String placeId) async {
-    try {
-      final DocumentList response = await _databases.listDocuments(
-        databaseId: _databaseId,
-        collectionId: _commentsCollectionId,
-        queries: [
-          Query.equal('placeId', placeId),
-          Query.orderDesc('\$createdAt'),
-        ],
-      );
-      return response.documents
-          .map((doc) => CommentModel.fromDocument(doc))
-          .toList();
-    } on AppwriteException catch (e) {
-      print('CommentRepository: Error getting comments: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('CommentRepository: Unknown error getting comments: $e');
-      rethrow;
-    }
+  Future<List<CommentModel>> getCommentsForPlace(String pid) async {
+    final res = await _db.listDocuments(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.collectionComments,
+      queries: [Query.equal('placeId', pid)],
+    );
+    return res.documents.map(CommentModel.fromDocument).toList();
   }
 
-  Future<void> addComment(CommentModel comment) async {
-    try {
-      await _databases.createDocument(
-        databaseId: _databaseId,
-        collectionId: _commentsCollectionId,
-        documentId: ID.unique(),
-        data: comment.toJson(),
-        permissions: [
-          Permission.read(Role.any()),
-          Permission.write(Role.user(comment.userId)),
-        ],
-      );
-    } on AppwriteException catch (e) {
-      print('CommentRepository: Error adding comment: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('CommentRepository: Unknown error adding comment: $e');
-      rethrow;
-    }
+  Future<void> addComment(CommentModel c) async {
+    await _db.createDocument(
+      databaseId: AppwriteConstants.databaseId,
+      collectionId: AppwriteConstants.collectionComments,
+      documentId: ID.unique(),
+      data: c.toJson(),
+      permissions: [
+        Permission.read(Role.any()),
+        Permission.write(Role.user(c.userId)),
+      ],
+    );
   }
 }

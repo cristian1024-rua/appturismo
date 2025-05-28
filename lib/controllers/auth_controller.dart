@@ -1,88 +1,81 @@
 // lib/controllers/auth_controller.dart
-import 'package:appwrite/models.dart';
 import 'package:get/get.dart';
+import 'package:appwrite/models.dart' as models;
 import 'package:appturismo/repositories/auth_repository.dart';
 
+/// Controlador de autenticación para la app de turismo usando GetX.
 class AuthController extends GetxController {
-  final AuthRepository _authRepository;
-  Rx<User?> user = Rx<User?>(null);
-  RxBool isLoading = false.obs; // Añadido
-  RxString errorMessage = ''.obs; // Añadido
+  // Repositorio de autenticación inyectado
+  final AuthRepository _authRepo = Get.find<AuthRepository>();
 
-  AuthController(this._authRepository);
+  /// Usuario autenticado (observable null si no hay sesión)
+  final Rxn<models.User> user = Rxn<models.User>();
+
+  /// Indicador de carga para operaciones de login/registro
+  final RxBool isLoading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _checkCurrentUser();
+
+    // Escuchar cambios en el usuario desde el repositorio
+    ever<models.User?>(_authRepo.user, (u) {
+      user.value = u;
+    });
+
+    // Cargar usuario actual al iniciar
+    _loadUser();
   }
 
-  Future<void> _checkCurrentUser() async {
-    isLoading.value = true; // Empieza a cargar
-    errorMessage.value = '';
-    try {
-      user.value = await _authRepository.getCurrentUser();
-      print('AuthController: Current user: ${user.value?.email}');
-    } catch (e) {
-      errorMessage.value = 'Error al verificar usuario: $e';
-      print('AuthController: Error checking current user: $e');
-      user.value = null;
-    } finally {
-      isLoading.value = false; // Termina de cargar
+  /// Carga el usuario actual si ya hay sesión activa
+  Future<void> _loadUser() async {
+    if (user.value == null && await _authRepo.isLoggedIn()) {
+      final me = await _authRepo.getCurrentUser();
+      user.value = me;
     }
   }
 
-  Future<void> login(String email, String password) async {
-    isLoading.value = true; // Empieza a cargar
-    errorMessage.value = '';
+  /// Registra un usuario y, si tiene éxito, navega a '/home'
+  Future<void> register({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
     try {
-      await _authRepository.login(email, password);
-      await _checkCurrentUser();
-      Get.offAllNamed('/home');
-    } catch (e) {
-      errorMessage.value = e.toString(); // Asigna el error para mostrarlo en UI
-      Get.snackbar('Error de inicio de sesión', e.toString());
-      print('AuthController: Login failed: $e');
+      isLoading.value = true;
+      final newUser = await _authRepo.register(
+        email: email,
+        password: password,
+        name: name,
+      );
+      if (newUser != null) {
+        Get.offAllNamed('/home');
+      }
     } finally {
-      isLoading.value = false; // Termina de cargar
+      isLoading.value = false;
     }
   }
 
-  Future<void> register(String email, String password, String name) async {
-    isLoading.value = true; // Empieza a cargar
-    errorMessage.value = '';
+  /// Inicia sesión y, si tiene éxito, navega a '/home'
+  Future<void> login({required String email, required String password}) async {
     try {
-      await _authRepository.register(email, password, name);
-      await _checkCurrentUser();
-      Get.offAllNamed('/home');
-    } catch (e) {
-      errorMessage.value = e.toString(); // Asigna el error para mostrarlo en UI
-      Get.snackbar('Error de registro', e.toString());
-      print('AuthController: Registration failed: $e');
+      isLoading.value = true;
+      final success = await _authRepo.login(email: email, password: password);
+      if (success) {
+        Get.offAllNamed('/home');
+      }
     } finally {
-      isLoading.value = false; // Termina de cargar
+      isLoading.value = false;
     }
   }
 
+  /// Cierra sesión y regresa a '/login'
   Future<void> logout() async {
-    isLoading.value = true; // Empieza a cargar
-    errorMessage.value = '';
-    try {
-      await _authRepository.logout();
-      user.value = null;
-      Get.offAllNamed('/login');
-      Get.snackbar('Sesión cerrada', 'Has cerrado sesión correctamente');
-    } catch (e) {
-      errorMessage.value = e.toString(); // Asigna el error para mostrarlo en UI
-      Get.snackbar('Error al cerrar sesión', e.toString());
-      print('AuthController: Logout failed: $e');
-    } finally {
-      isLoading.value = false; // Termina de cargar
-    }
+    await _authRepo.logout();
+    user.value = null;
+    Get.offAllNamed('/login');
   }
 
+  /// Indica si hay un usuario autenticado
   bool get isLoggedIn => user.value != null;
-  String? get currentUserId => user.value?.$id;
-  String? get currentUserEmail => user.value?.email;
-  String? get currentUserName => user.value?.name;
 }

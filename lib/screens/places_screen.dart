@@ -1,72 +1,71 @@
-// lib/screens/places_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:appturismo/controllers/place_controller.dart';
-import 'package:appturismo/controllers/auth_controller.dart'; // Necesitas AuthController para cerrar sesión
-import 'package:appturismo/widgets/place_card.dart'; // Asume que tienes un PlaceCard widget
+import 'package:appturismo/controllers/location_controller.dart';
+import 'package:appturismo/controllers/auth_controller.dart';
+import 'package:appturismo/widgets/place_card.dart';
 
-class PlacesScreen extends StatefulWidget {
-  const PlacesScreen({super.key});
-
-  @override
-  State<PlacesScreen> createState() => _PlacesScreenState();
-}
-
-class _PlacesScreenState extends State<PlacesScreen> {
-  final PlaceController placeCtrl = Get.find<PlaceController>();
-  final AuthController authCtrl =
-      Get.find<AuthController>(); // Obtener AuthController
-  final TextEditingController searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    placeCtrl.fetchPlaces(); // Cargar lugares al iniciar la pantalla
-  }
+class PlacesScreen extends StatelessWidget {
+  const PlacesScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final placeCtrl = Get.find<PlaceController>();
+    final locCtrl = Get.find<LocationController>();
+    final auth = Get.find<AuthController>();
+    final searchCtrl = TextEditingController();
+
+    // Llamar a fetchPlaces una sola vez cuando se renderiza el widget
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pos = locCtrl.currentLocation.value;
+      placeCtrl.fetchPlaces(
+        userLat: pos?.latitude,
+        userLon: pos?.longitude,
+        searchQuery: searchCtrl.text,
+      );
+    });
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lugares Turísticos'),
+        title: const Text('Lugares'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              authCtrl.logout(); // Llamar al método logout del AuthController
-            },
+            icon: const Icon(Icons.favorite),
+            onPressed: () => Get.toNamed('/favorites'),
           ),
           IconButton(
-            icon: const Icon(Icons.favorite),
-            onPressed: () {
-              Get.toNamed('/favorites');
-            },
+            icon: const Icon(Icons.map),
+            onPressed: () => Get.toNamed('/map'),
           ),
           IconButton(
             icon: const Icon(Icons.person),
-            onPressed: () {
-              Get.toNamed('/profile');
-            },
+            onPressed: () => Get.toNamed('/profile'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => auth.logout(),
           ),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(8),
             child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar lugares...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+              controller: searchCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Buscar…',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
-              onChanged: (value) {
-                placeCtrl.onSearchChanged(
-                  value,
-                ); // Llamar a la función de búsqueda
+              onSubmitted: (q) {
+                final pos = locCtrl.currentLocation.value;
+                placeCtrl.fetchPlaces(
+                  userLat: pos?.latitude,
+                  userLon: pos?.longitude,
+                  searchQuery: q,
+                );
               },
             ),
           ),
@@ -75,30 +74,27 @@ class _PlacesScreenState extends State<PlacesScreen> {
               if (placeCtrl.isLoading.value) {
                 return const Center(child: CircularProgressIndicator());
               }
-              // Corrección: usar placeCtrl.errorMessage
-              if (placeCtrl.errorMessage.value.isNotEmpty) {
-                return Center(
-                  child: Text('Error: ${placeCtrl.errorMessage.value}'),
-                ); // Corrección
+              if (placeCtrl.error.value.isNotEmpty) {
+                return Center(child: Text(placeCtrl.error.value));
               }
-              if (placeCtrl.places.isEmpty) {
-                return const Center(child: Text('No hay lugares disponibles.'));
+              final docs = placeCtrl.places;
+              if (docs.isEmpty) {
+                return const Center(child: Text('No se encontraron lugares.'));
               }
               return ListView.builder(
-                itemCount: placeCtrl.places.length,
-                itemBuilder: (context, index) {
-                  final place = placeCtrl.places[index];
-                  return PlaceCard(place: place);
-                },
+                itemCount: docs.length,
+                itemBuilder:
+                    (_, i) => PlaceCard(
+                      doc: docs[i],
+                      onTap: () => Get.toNamed('/detail', arguments: docs[i]),
+                    ),
               );
             }),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Get.toNamed('/add');
-        },
+        onPressed: () => Get.toNamed('/add'),
         child: const Icon(Icons.add),
       ),
     );

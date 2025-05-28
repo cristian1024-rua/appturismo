@@ -1,33 +1,43 @@
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:appturismo/services/location_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapController extends GetxController {
-  final LocationService _locationService = Get.find<LocationService>();
-  final Rx<Position?> currentPosition = Rx<Position?>(null);
-  final RxBool isLoading = false.obs;
-  final RxString error = ''.obs;
+  final Rxn<Position> currentPosition = Rxn<Position>();
+  final RxBool isLoading = true.obs;
+  final RxString errorMessage = ''.obs;
+  late GoogleMapController mapCtrl;
 
   @override
   void onInit() {
     super.onInit();
-    getCurrentLocation();
+    _determinePosition();
   }
 
-  Future<void> getCurrentLocation() async {
-    isLoading.value = true;
-    error.value = '';
+  Future<void> _determinePosition() async {
     try {
-      currentPosition.value = await _locationService.getCurrentPosition();
+      isLoading.value = true;
+      bool enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        errorMessage.value = 'Activa tu GPS';
+        return;
+      }
+      var p = await Geolocator.getCurrentPosition();
+      currentPosition.value = p;
     } catch (e) {
-      error.value = e.toString();
-      Get.snackbar(
-        'Error de ubicación',
-        error.value,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      errorMessage.value = e.toString();
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void onMapCreated(GoogleMapController c) => mapCtrl = c;
+
+  void onTap(LatLng p) {
+    Get.snackbar(
+      'Coordenadas',
+      'Lat ${p.latitude.toStringAsFixed(6)}, Lng ${p.longitude.toStringAsFixed(6)}',
+      snackPosition: SnackPosition.BOTTOM,
+    );
   }
 }
