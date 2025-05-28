@@ -1,3 +1,4 @@
+import 'package:appturismo/controllers/place_controller.dart';
 import 'package:appturismo/model/place_model.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
@@ -10,11 +11,35 @@ class MapController extends GetxController {
   late GoogleMapController mapCtrl;
   final RxSet<Marker> markers = <Marker>{}.obs;
   final RxDouble zoomLevel = 12.0.obs;
+  final RxSet<String> selectedFilters = <String>{}.obs;
 
   @override
   void onInit() {
     super.onInit();
     _determinePosition();
+  }
+
+  void clearFilters() {
+    selectedFilters.clear();
+    final placeCtrl = Get.find<PlaceController>();
+    updateMarkers(placeCtrl.places);
+  }
+
+  void toggleFilter(String filter) {
+    if (selectedFilters.contains(filter)) {
+      selectedFilters.remove(filter);
+    } else {
+      selectedFilters.add(filter);
+    }
+
+    final placeCtrl = Get.find<PlaceController>();
+    final filteredPlaces =
+        selectedFilters.isEmpty
+            ? placeCtrl.places
+            : placeCtrl.places
+                .where((p) => selectedFilters.contains(p.category))
+                .toList();
+    updateMarkers(filteredPlaces);
   }
 
   Future<void> _determinePosition() async {
@@ -56,6 +81,25 @@ class MapController extends GetxController {
     }
   }
 
+  void updateMarkers(List<Place> places) {
+    markers.clear();
+    for (var place in places) {
+      if (selectedFilters.isEmpty || selectedFilters.contains(place.category)) {
+        markers.add(
+          Marker(
+            markerId: MarkerId(place.id),
+            position: LatLng(place.latitude, place.longitude),
+            infoWindow: InfoWindow(
+              title: place.title,
+              snippet: place.description,
+            ),
+            onTap: () => Get.toNamed('/detail', arguments: place),
+          ),
+        );
+      }
+    }
+  }
+
   void onMapCreated(GoogleMapController controller) {
     mapCtrl = controller;
     if (currentPosition.value != null) {
@@ -66,23 +110,6 @@ class MapController extends GetxController {
             currentPosition.value!.longitude,
           ),
           zoomLevel.value,
-        ),
-      );
-    }
-  }
-
-  void updateMarkers(List<Place> places) {
-    markers.clear();
-    for (var place in places) {
-      markers.add(
-        Marker(
-          markerId: MarkerId(place.id),
-          position: LatLng(place.latitude, place.longitude),
-          infoWindow: InfoWindow(
-            title: place.title,
-            snippet: place.description,
-          ),
-          onTap: () => Get.toNamed('/detail', arguments: place),
         ),
       );
     }

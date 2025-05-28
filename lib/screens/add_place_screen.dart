@@ -7,9 +7,21 @@ import 'package:appturismo/controllers/place_controller.dart';
 import 'package:appturismo/controllers/auth_controller.dart';
 import 'package:appturismo/model/place_model.dart';
 import 'package:appturismo/repositories/storage_repository.dart';
+import 'package:appturismo/widgets/category_selector.dart';
 
-class AddPlaceScreen extends StatelessWidget {
+class AddPlaceScreen extends StatefulWidget {
   const AddPlaceScreen({super.key});
+
+  @override
+  State<AddPlaceScreen> createState() => _AddPlaceScreenState();
+}
+
+class _AddPlaceScreenState extends State<AddPlaceScreen> {
+  final formKey = GlobalKey<FormState>();
+  final tTitle = TextEditingController();
+  final tDesc = TextEditingController();
+  XFile? picked;
+  String selectedCategory = 'other';
 
   @override
   Widget build(BuildContext context) {
@@ -17,11 +29,6 @@ class AddPlaceScreen extends StatelessWidget {
     final auth = Get.find<AuthController>();
     final storage = Get.find<StorageRepository>();
     final picker = ImagePicker();
-
-    final formKey = GlobalKey<FormState>();
-    final tTitle = TextEditingController();
-    final tDesc = TextEditingController();
-    XFile? picked;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Agregar Lugar')),
@@ -36,22 +43,47 @@ class AddPlaceScreen extends StatelessWidget {
                 decoration: const InputDecoration(labelText: 'Título'),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: tDesc,
                 decoration: const InputDecoration(labelText: 'Descripción'),
                 maxLines: 3,
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              CategorySelector(
+                initialValue: selectedCategory,
+                onChanged: (category) {
+                  setState(() {
+                    selectedCategory = category;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.photo),
                 label: const Text('Seleccionar Imagen'),
                 onPressed: () async {
-                  picked = await picker.pickImage(source: ImageSource.gallery);
+                  final XFile? image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (image != null) {
+                    setState(() {
+                      picked = image;
+                    });
+                  }
                 },
               ),
-              const SizedBox(height: 8),
+              if (picked != null) ...[
+                const SizedBox(height: 8),
+                Image.file(
+                  File(picked!.path),
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ],
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 icon: const Icon(Icons.my_location),
                 label: const Text('Usar mi ubicación'),
@@ -59,8 +91,10 @@ class AddPlaceScreen extends StatelessWidget {
                   var loc =
                       Get.find<LocationController>().currentLocation.value;
                   if (loc != null) {
-                    tDesc.text +=
-                        '\n(${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)})';
+                    setState(() {
+                      tDesc.text +=
+                          '\n(${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)})';
+                    });
                   }
                 },
               ),
@@ -87,7 +121,8 @@ class AddPlaceScreen extends StatelessWidget {
                     latitude: 0,
                     longitude: 0,
                     createdBy: user.$id,
-                    name: '',
+                    name: tTitle.text.trim(),
+                    category: selectedCategory,
                   );
                   await placeCtrl.addPlace(newPlace);
                   Get.back();

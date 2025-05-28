@@ -12,21 +12,37 @@ class PlaceRepository {
     double? userLat,
     double? userLon,
     String? searchQuery,
-  }) => _db
-      .listDocuments(
+    List<String>? categories, // Agregar este parámetro
+  }) async {
+    try {
+      List<String> queries = [];
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        queries.add(Query.search('title', searchQuery));
+      }
+
+      if (categories != null && categories.isNotEmpty) {
+        queries.add(Query.equal('category', categories));
+      }
+
+      queries.add(Query.orderDesc('\$createdAt'));
+
+      final result = await _db.listDocuments(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.collectionPlaces,
-        queries: [
-          if (searchQuery != null && searchQuery.isNotEmpty)
-            Query.search('title', searchQuery),
-          Query.orderDesc('\$createdAt'),
-        ],
-      )
-      .then((res) => res.documents);
+        queries: queries,
+      );
+
+      return result.documents;
+    } catch (e) {
+      print('Error en PlaceRepository.getPlaces: $e');
+      rethrow;
+    }
+  }
 
   Future<Document> addPlace(Place place) async {
     try {
-      final doc = await _db.createDocument(
+      return await _db.createDocument(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.collectionPlaces,
         documentId: ID.unique(),
@@ -36,10 +52,9 @@ class PlaceRepository {
           Permission.write(Role.user(place.createdBy)),
         ],
       );
-      return doc;
     } catch (e) {
       print('Error creating place document: $e');
-      throw 'Error al crear el lugar: $e';
+      rethrow;
     }
   }
 }
