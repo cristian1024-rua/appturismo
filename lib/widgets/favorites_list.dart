@@ -4,24 +4,45 @@ import 'package:appturismo/controllers/favorites_controller.dart';
 import 'package:appturismo/widgets/place_card.dart';
 
 class FavoritesListWidget extends StatelessWidget {
-  final FavoritesController ctrl = Get.find();
+  const FavoritesListWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final ctrl = Get.find<FavoritesController>();
+
     return Obx(() {
       if (ctrl.isLoading.value) {
         return const Center(child: CircularProgressIndicator());
       }
+
       if (ctrl.favorites.isEmpty) {
-        return const Center(child: Text('No tienes favoritos aún'));
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.favorite_border, size: 48, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No tienes favoritos aún',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        );
       }
+
       return ListView.builder(
         itemCount: ctrl.favorites.length,
+        padding: const EdgeInsets.all(8),
         itemBuilder: (_, i) {
-          final doc = ctrl.favorites[i];
+          final place = ctrl.favorites[i];
+
           return PlaceCard(
-            doc: doc,
-            onTap: () => Get.toNamed('/detail', arguments: doc),
+            place: place,
+            onTap: () => Get.toNamed('/detail', arguments: place),
+            showFavoriteButton: true,
+            isFavorite: true,
+            onFavoriteToggle: () => ctrl.removeFavorite(place.id),
           );
         },
       );

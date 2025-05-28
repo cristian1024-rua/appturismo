@@ -1,62 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:appturismo/model/place_model.dart';
 
 class PlaceCard extends StatelessWidget {
-  final dynamic doc; // Puedes usar tu clase `Place` si la tienes
+  final Place place;
   final VoidCallback onTap;
+  final bool showFavoriteButton;
+  final VoidCallback? onFavoriteToggle;
+  final bool isFavorite;
 
-  const PlaceCard({super.key, required this.doc, required this.onTap});
+  const PlaceCard({
+    Key? key,
+    required this.place,
+    required this.onTap,
+    this.showFavoriteButton = false,
+    this.onFavoriteToggle,
+    this.isFavorite = false,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      elevation: 2,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading:
+            place.imageUrl.isNotEmpty
+                ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    place.imageUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder:
+                        (context, error, stackTrace) =>
+                            const Icon(Icons.image_not_supported, size: 60),
+                  ),
+                )
+                : const Icon(Icons.place, size: 60),
+        title: Text(
+          place.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          place.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (doc['imageUrl'] != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
+            if (showFavoriteButton && onFavoriteToggle != null)
+              IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : Colors.grey,
                 ),
-                child: Image.network(
-                  doc['imageUrl'],
-                  width: 120,
-                  height: 120,
-                  fit: BoxFit.cover,
-                ),
+                onPressed: onFavoriteToggle,
               ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      doc['title'] ?? 'Sin título',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      doc['description'] ?? 'Sin descripción',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            const Icon(Icons.arrow_forward_ios, size: 16),
           ],
         ),
+        onTap: onTap,
       ),
     );
   }

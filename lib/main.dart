@@ -32,43 +32,59 @@ import 'package:appturismo/screens/favorites_screen.dart';
 import 'package:appturismo/screens/profile_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await GetStorage.init();
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await GetStorage.init();
 
-  AppwriteClient.client
-      .setEndpoint(AppwriteConstants.endpoint)
-      .setProject(AppwriteConstants.projectId)
-      .setSelfSigned(status: true);
+    // Inicializar Appwrite
+    AppwriteClient.client
+      ..setEndpoint(AppwriteConstants.endpoint)
+      ..setProject(AppwriteConstants.projectId)
+      ..setSelfSigned(status: true);
 
-  final db = Databases(AppwriteClient.client);
-  final storage = Storage(AppwriteClient.client);
+    final db = Databases(AppwriteClient.client);
+    final storage = Storage(AppwriteClient.client);
+    final account = Account(AppwriteClient.client);
 
-  // Repos
-  Get.lazyPut(() => AuthRepository(), fenix: true);
-  Get.lazyPut(() => PlaceRepository(db), fenix: true);
-  Get.lazyPut(
-    () => StorageRepository(storage, bucketId: AppwriteConstants.bucketId),
-    fenix: true,
-  );
-  Get.lazyPut(() => FavoritesRepository(db), fenix: true);
-  Get.lazyPut(() => CommentRepository(db), fenix: true);
+    // Verificar conexión
+    try {
+      await account.get();
+    } catch (e) {
+      print('Error de conexión con Appwrite: $e');
+    }
 
-  // Ctrl
-  Get.lazyPut(() => AuthController(), fenix: true);
-  Get.lazyPut(() => LocationController(), fenix: true);
-  Get.lazyPut(() => PlaceController(Get.find()), fenix: true);
-  Get.lazyPut(() => FavoritesController(Get.find()), fenix: true);
-  Get.lazyPut(() => CommentController(Get.find()), fenix: true);
-  Get.lazyPut(() => MapController(), fenix: true);
+    // Repositories - usar put en lugar de lazyPut para los repos principales
+    Get.put(AuthRepository(), permanent: true);
+    Get.put(PlaceRepository(db), permanent: true);
+    Get.put(
+      StorageRepository(storage, bucketId: AppwriteConstants.bucketId),
+      permanent: true,
+    );
+    Get.put(FavoritesRepository(db), permanent: true);
+    Get.put(CommentRepository(db), permanent: true);
 
-  runApp(const MyApp());
+    // Controllers - usar put en lugar de lazyPut para los controladores principales
+    Get.put(AuthController(), permanent: true);
+    Get.put(LocationController(), permanent: true);
+    Get.put(PlaceController(Get.find()), permanent: true);
+    Get.put(FavoritesController(Get.find()), permanent: true);
+    Get.put(CommentController(Get.find()), permanent: true);
+    Get.put(MapController(), permanent: true);
+
+    runApp(const MyApp());
+  } catch (e) {
+    print('Error al inicializar la aplicación: $e');
+    runApp(const ErrorApp());
+  }
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     final auth = Get.find<AuthController>();
+
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Turismo App',
@@ -79,31 +95,116 @@ class MyApp extends StatelessWidget {
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         ),
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+        ),
       ),
-      darkTheme: ThemeData.dark().copyWith(primaryColor: Colors.tealAccent),
+      darkTheme: ThemeData.dark().copyWith(
+        primaryColor: Colors.tealAccent,
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          centerTitle: true,
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+        ),
+      ),
       themeMode: ThemeMode.system,
+      initialRoute: '/',
       home: Obx(() {
         if (auth.isLoading.value) return const SplashScreen();
         return auth.isLoggedIn ? const PlacesScreen() : const LoginScreen();
       }),
       getPages: [
-        GetPage(name: '/login', page: () => const LoginScreen()),
-        GetPage(name: '/register', page: () => const RegisterScreen()),
-        GetPage(name: '/places', page: () => const PlacesScreen()),
-        GetPage(name: '/add', page: () => AddPlaceScreen()),
+        GetPage(
+          name: '/',
+          page: () => const SplashScreen(),
+          transition: Transition.fade,
+        ),
+        GetPage(
+          name: '/login',
+          page: () => const LoginScreen(),
+          transition: Transition.rightToLeft,
+        ),
+        GetPage(
+          name: '/register',
+          page: () => const RegisterScreen(),
+          transition: Transition.rightToLeft,
+        ),
+        GetPage(
+          name: '/places',
+          page: () => const PlacesScreen(),
+          transition: Transition.fadeIn,
+        ),
+        GetPage(
+          name: '/add',
+          page: () => const AddPlaceScreen(),
+          transition: Transition.rightToLeft,
+        ),
         GetPage(
           name: '/detail',
           page: () => PlaceDetailScreen(place: Get.arguments),
+          transition: Transition.rightToLeft,
         ),
-        GetPage(name: '/map', page: () => MapScreen()),
-        GetPage(name: '/favorites', page: () => FavoritesScreen()),
-        GetPage(name: '/profile', page: () => const ProfileScreen()),
+        GetPage(
+          name: '/map',
+          page: () => const MapScreen(),
+          transition: Transition.rightToLeft,
+        ),
+        GetPage(
+          name: '/favorites',
+          page: () => const FavoritesScreen(),
+          transition: Transition.rightToLeft,
+        ),
+        GetPage(
+          name: '/profile',
+          page: () => const ProfileScreen(),
+          transition: Transition.rightToLeft,
+        ),
       ],
+    );
+  }
+}
+
+// Pantalla de error en caso de fallo en la inicialización
+class ErrorApp extends StatelessWidget {
+  const ErrorApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 64),
+              const SizedBox(height: 16),
+              const Text(
+                'Error al iniciar la aplicación',
+                style: TextStyle(fontSize: 20),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  // Reiniciar la aplicación
+                  main();
+                },
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

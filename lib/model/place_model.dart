@@ -44,6 +44,8 @@ class Place {
 
   get data => null;
 
+  get doc => null;
+
   Map<String, dynamic> toMap() {
     return {
       'title': title, // Guardar como 'title' en Appwrite

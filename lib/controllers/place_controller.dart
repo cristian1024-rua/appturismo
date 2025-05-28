@@ -1,15 +1,14 @@
 import 'package:get/get.dart';
-import 'package:appwrite/models.dart';
 import 'package:appturismo/repositories/place_repository.dart';
 import 'package:appturismo/model/place_model.dart';
 
 class PlaceController extends GetxController {
-  final _repo = Get.find<PlaceRepository>();
-  final RxList<Document> places = <Document>[].obs;
+  final PlaceRepository _repo;
+  final RxList<Place> places = <Place>[].obs;
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
 
-  PlaceController(PlaceRepository find);
+  PlaceController(this._repo);
 
   @override
   void onInit() {
@@ -22,22 +21,36 @@ class PlaceController extends GetxController {
     double? userLon,
     String? searchQuery,
   }) async {
-    isLoading.value = true;
     try {
+      isLoading.value = true;
+      error.value = '';
       final docs = await _repo.getPlaces(
         userLat: userLat,
         userLon: userLon,
         searchQuery: searchQuery,
       );
-      places.value = docs;
+      places.value = docs.map((doc) => Place.fromDocument(doc)).toList();
+    } catch (e) {
+      error.value = 'Error al cargar lugares: $e';
+      print('Error fetching places: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> addPlace(Place p) async {
-    isLoading.value = true;
-    await _repo.addPlace(place: p);
-    await fetchPlaces();
+  Future<void> addPlace(Place place) async {
+    try {
+      isLoading.value = true;
+      error.value = '';
+      final doc = await _repo.addPlace(place);
+      final newPlace = Place.fromDocument(doc);
+      places.add(newPlace);
+    } catch (e) {
+      error.value = 'Error al agregar lugar: $e';
+      print('Error adding place: $e');
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
   }
 }

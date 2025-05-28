@@ -5,6 +5,7 @@ import 'package:appturismo/model/place_model.dart';
 
 class PlaceRepository {
   final Databases _db;
+
   PlaceRepository(this._db);
 
   Future<List<Document>> getPlaces({
@@ -23,17 +24,22 @@ class PlaceRepository {
       )
       .then((res) => res.documents);
 
-  Future<Place> addPlace({required Place place}) async {
-    final doc = await _db.createDocument(
-      databaseId: AppwriteConstants.databaseId,
-      collectionId: AppwriteConstants.collectionPlaces,
-      documentId: ID.unique(),
-      data: place.toMap(),
-      permissions: [
-        Permission.read(Role.any()),
-        Permission.write(Role.user(place.createdBy)),
-      ],
-    );
-    return Place.fromDocument(doc);
+  Future<Document> addPlace(Place place) async {
+    try {
+      final doc = await _db.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.collectionPlaces,
+        documentId: ID.unique(),
+        data: place.toMap(),
+        permissions: [
+          Permission.read(Role.any()),
+          Permission.write(Role.user(place.createdBy)),
+        ],
+      );
+      return doc;
+    } catch (e) {
+      print('Error creating place document: $e');
+      throw 'Error al crear el lugar: $e';
+    }
   }
 }
