@@ -3,7 +3,9 @@ import 'package:get/get.dart';
 import 'package:appturismo/controllers/place_controller.dart';
 import 'package:appturismo/controllers/location_controller.dart';
 import 'package:appturismo/controllers/favorites_controller.dart';
+import 'package:appturismo/controllers/user_controller.dart'; // Nuevo
 import 'package:appturismo/widgets/place_card.dart';
+import 'package:appturismo/screens/profile_screen.dart'; // Nuevo
 
 class PlacesScreen extends StatefulWidget {
   const PlacesScreen({super.key});
@@ -34,6 +36,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     final placeCtrl = Get.find<PlaceController>();
     final locCtrl = Get.find<LocationController>();
     final favCtrl = Get.find<FavoritesController>();
+    final userCtrl = Get.find<UserController>(); // Nuevo
 
     return Scaffold(
       appBar: AppBar(
@@ -47,6 +50,38 @@ class _PlacesScreenState extends State<PlacesScreen> {
             icon: const Icon(Icons.map),
             onPressed: () => Get.toNamed('/map'),
           ),
+          // Nuevo: Widget de perfil
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: GestureDetector(
+              onTap: () => Get.to(() => const ProfileScreen()),
+              child: Hero(
+                tag: 'profile-avatar',
+                child: Obx(() {
+                  final user = userCtrl.currentUser.value;
+                  return CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Theme.of(context).primaryColorLight,
+                    backgroundImage:
+                        user?.avatarUrl != null
+                            ? NetworkImage(user!.avatarUrl!)
+                            : null,
+                    child:
+                        user?.avatarUrl == null
+                            ? Text(
+                              user?.username.substring(0, 1).toUpperCase() ??
+                                  'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                            : null,
+                  );
+                }),
+              ),
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -55,6 +90,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
       ),
       body: Column(
         children: [
+          // Barra de búsqueda
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(
@@ -78,6 +114,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
               onChanged: (value) => _performSearch(value, placeCtrl, locCtrl),
             ),
           ),
+
+          // Lista de lugares
           Expanded(
             child: Obx(() {
               if (placeCtrl.isLoading.value) {

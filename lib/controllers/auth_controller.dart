@@ -1,7 +1,7 @@
-// lib/controllers/auth_controller.dart
 import 'package:get/get.dart';
 import 'package:appwrite/models.dart' as models;
 import 'package:appturismo/repositories/auth_repository.dart';
+import 'package:appturismo/controllers/user_controller.dart'; // Nuevo
 
 /// Controlador de autenticación para la app de turismo usando GetX.
 class AuthController extends GetxController {
@@ -21,6 +21,10 @@ class AuthController extends GetxController {
     // Escuchar cambios en el usuario desde el repositorio
     ever<models.User?>(_authRepo.user, (u) {
       user.value = u;
+      // Nuevo: Cargar perfil de usuario cuando cambie el usuario
+      if (u != null) {
+        Get.find<UserController>().loadUserProfile(u.$id);
+      }
     });
 
     // Cargar usuario actual al iniciar
@@ -49,6 +53,12 @@ class AuthController extends GetxController {
         name: name,
       );
       if (newUser != null) {
+        // Nuevo: Crear perfil de usuario después del registro
+        await Get.find<UserController>().createProfile(
+          userId: newUser.$id,
+          email: email,
+          username: name,
+        );
         Get.offAllNamed('/home');
       }
     } finally {
@@ -62,6 +72,10 @@ class AuthController extends GetxController {
       isLoading.value = true;
       final success = await _authRepo.login(email: email, password: password);
       if (success) {
+        // Nuevo: Cargar perfil de usuario después del login
+        if (user.value != null) {
+          await Get.find<UserController>().loadUserProfile(user.value!.$id);
+        }
         Get.offAllNamed('/home');
       }
     } finally {
@@ -73,6 +87,8 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     await _authRepo.logout();
     user.value = null;
+    // Nuevo: Limpiar perfil de usuario al cerrar sesión
+    Get.find<UserController>().clearProfile();
     Get.offAllNamed('/login');
   }
 

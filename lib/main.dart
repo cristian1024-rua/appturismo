@@ -1,26 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-
-import 'package:appturismo/services/appwrite_client.dart' as AppwriteClient;
-import 'package:appturismo/core/constants/appwrite_constants.dart';
 import 'package:appwrite/appwrite.dart';
 
-// Repos y Ctrl
+// Servicios y Constantes
+import 'package:appturismo/core/constants/appwrite_constants.dart';
+
+// Repositories
 import 'package:appturismo/repositories/auth_repository.dart';
 import 'package:appturismo/repositories/place_repository.dart';
 import 'package:appturismo/repositories/storage_repository.dart';
 import 'package:appturismo/repositories/favorites_repository.dart';
 import 'package:appturismo/repositories/comment_repository.dart';
+import 'package:appturismo/repositories/user_repository.dart';
 
+// Controllers
 import 'package:appturismo/controllers/auth_controller.dart';
 import 'package:appturismo/controllers/location_controller.dart';
 import 'package:appturismo/controllers/place_controller.dart';
 import 'package:appturismo/controllers/favorites_controller.dart';
 import 'package:appturismo/controllers/comment_controller.dart';
 import 'package:appturismo/controllers/map_controller.dart';
+import 'package:appturismo/controllers/user_controller.dart';
 
-// Pantallas
+// Screens
 import 'package:appturismo/screens/splash_screen.dart';
 import 'package:appturismo/screens/login_screen.dart';
 import 'package:appturismo/screens/register_screen.dart';
@@ -37,39 +40,53 @@ void main() async {
     await GetStorage.init();
 
     // Inicializar Appwrite
-    AppwriteClient.client
-      ..setEndpoint(AppwriteConstants.endpoint)
-      ..setProject(AppwriteConstants.projectId)
-      ..setSelfSigned(status: true);
+    final client =
+        Client()
+          ..setEndpoint(AppwriteConstants.endpoint)
+          ..setProject(AppwriteConstants.projectId)
+          ..setSelfSigned(status: true);
 
-    final db = Databases(AppwriteClient.client);
-    final storage = Storage(AppwriteClient.client);
-    final account = Account(AppwriteClient.client);
+    // Core services
+    final databases = Databases(client);
+    final storage = Storage(client);
 
-    // Verificar conexión
-    try {
-      await account.get();
-    } catch (e) {
-      print('Error de conexión con Appwrite: $e');
-    }
-
-    // Repositories - usar put en lugar de lazyPut para los repos principales
-    Get.put(AuthRepository(), permanent: true);
-    Get.put(PlaceRepository(db), permanent: true);
-    Get.put(
+    // Repositories
+    Get.put<AuthRepository>(AuthRepository(), permanent: true);
+    Get.put<PlaceRepository>(PlaceRepository(databases), permanent: true);
+    Get.put<StorageRepository>(
       StorageRepository(storage, bucketId: AppwriteConstants.bucketId),
       permanent: true,
     );
-    Get.put(FavoritesRepository(db), permanent: true);
-    Get.put(CommentRepository(db), permanent: true);
+    Get.put<FavoritesRepository>(
+      FavoritesRepository(databases),
+      permanent: true,
+    );
+    Get.put<CommentRepository>(CommentRepository(databases), permanent: true);
+    Get.put<UserRepository>(
+      UserRepository(databases, storage),
+      permanent: true,
+    );
 
-    // Controllers - usar put en lugar de lazyPut para los controladores principales
-    Get.put(AuthController(), permanent: true);
-    Get.put(LocationController(), permanent: true);
-    Get.put(PlaceController(Get.find()), permanent: true);
-    Get.put(FavoritesController(Get.find()), permanent: true);
-    Get.put(CommentController(Get.find()), permanent: true);
-    Get.put(MapController(), permanent: true);
+    // Controllers
+    Get.put<AuthController>(AuthController(), permanent: true); // Cambiado
+    Get.put<LocationController>(LocationController(), permanent: true);
+    Get.put<PlaceController>(
+      PlaceController(Get.find<PlaceRepository>()),
+      permanent: true,
+    );
+    Get.put<FavoritesController>(
+      FavoritesController(Get.find<FavoritesRepository>()),
+      permanent: true,
+    );
+    Get.put<CommentController>(
+      CommentController(Get.find<CommentRepository>()),
+      permanent: true,
+    );
+    Get.put<MapController>(MapController(), permanent: true);
+    Get.put<UserController>(
+      UserController(Get.find<UserRepository>()),
+      permanent: true,
+    );
 
     runApp(const MyApp());
   } catch (e) {
@@ -119,7 +136,6 @@ class MyApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      initialRoute: '/',
       home: Obx(() {
         if (auth.isLoading.value) return const SplashScreen();
         return auth.isLoggedIn ? const PlacesScreen() : const LoginScreen();
@@ -175,7 +191,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Pantalla de error en caso de fallo en la inicialización
 class ErrorApp extends StatelessWidget {
   const ErrorApp({super.key});
 
@@ -196,7 +211,6 @@ class ErrorApp extends StatelessWidget {
               const SizedBox(height: 8),
               ElevatedButton(
                 onPressed: () {
-                  // Reiniciar la aplicación
                   main();
                 },
                 child: const Text('Reintentar'),

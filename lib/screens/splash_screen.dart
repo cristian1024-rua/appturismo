@@ -25,16 +25,27 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     account = Account(client);
-    _checkSession();
+    // Usar Future.delayed para evitar el error de navegación
+    Future.delayed(const Duration(milliseconds: 500), _checkSession);
   }
 
   Future<void> _checkSession() async {
     try {
-      // Si se obtiene el usuario, la sesión está activa
-      Get.off(() => const PlacesScreen());
+      // Intentar obtener la sesión actual
+      final session = await account.getSession(sessionId: 'current');
+      if (session.current) {
+        // Obtener el usuario actual
+        final user = await account.get();
+        print('Usuario autenticado: ${user.name}');
+        // Navegar a PlacesScreen usando offAll para limpiar la pila de navegación
+        await Get.offAll(() => const PlacesScreen());
+      } else {
+        throw Exception('No hay sesión activa');
+      }
     } catch (e) {
-      // Si ocurre un error, no hay sesión activa
-      Get.off(() => const LoginScreen());
+      print('Error en _checkSession: $e');
+      // Navegar a LoginScreen usando offAll para limpiar la pila de navegación
+      await Get.offAll(() => const LoginScreen());
     }
   }
 

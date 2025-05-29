@@ -1,140 +1,86 @@
-// lib/repositories/user_repository.dart
+import 'package:appturismo/model/user_model.dart';
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
-// Ya NO necesitas importar 'package:appturismo/core/config/app_config.dart' aquí.
+
+import '../core/constants/appwrite_constants.dart';
+import 'dart:typed_data';
 
 class UserRepository {
   final Databases _databases;
-  final String _databaseId;
-  final String _usersCollectionId;
+  final Storage _storage;
 
-  // CONSTRUCTOR CORRECTO
-  // Recibe la instancia de Databases y los IDs directamente
-  UserRepository(
-    this._databases, {
-    required String databaseId,
-    required String usersCollectionId,
-  }) : _databaseId = databaseId,
-       _usersCollectionId = usersCollectionId;
+  UserRepository(this._databases, this._storage);
 
-  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+  // Obtener perfil de usuario
+  Future<UserModel?> getUserProfile(String userId) async {
     try {
-      final Document document = await _databases.getDocument(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
+      final document = await _databases.getDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.usersCollection,
         documentId: userId,
       );
-      return document.data;
+      return UserModel.fromMap(document.data);
     } on AppwriteException catch (e) {
-      if (e.code == 404) {
-        return null;
-      }
-      print('UserRepository: Error getting user profile: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('UserRepository: Unknown error getting user profile: $e');
+      if (e.code == 404) return null;
       rethrow;
     }
   }
 
-  Future<Document> createUserProfile(
+  // Crear perfil de usuario
+  Future<UserModel> createUserProfile(UserModel user) async {
+    try {
+      final document = await _databases.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.usersCollection,
+        documentId: user.id,
+        data: user.toMap(),
+      );
+      return UserModel.fromMap(document.data);
+    } catch (e) {
+      print('Error creating user profile: $e');
+      rethrow;
+    }
+  }
+
+  // Actualizar perfil de usuario
+  Future<UserModel> updateUserProfile(
     String userId,
-    String name,
-    String email,
+    Map<String, dynamic> data,
   ) async {
     try {
-      return await _databases.createDocument(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
+      final document = await _databases.updateDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.usersCollection,
         documentId: userId,
-        data: {'name': name, 'email': email, 'userId': userId},
-        permissions: [
-          Permission.read(Role.user(userId)),
-          Permission.write(Role.user(userId)),
-        ],
+        data: data,
       );
-    } on AppwriteException catch (e) {
-      print('UserRepository: Error creating user profile: ${e.message}');
-      rethrow;
+      return UserModel.fromMap(document.data);
     } catch (e) {
-      print('UserRepository: Unknown error creating user profile: $e');
+      print('Error updating user profile: $e');
       rethrow;
     }
   }
 
-  Future<List<Document>> getAllUsers() async {
-    try {
-      final DocumentList result = await _databases.listDocuments(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
-        queries: [
-          Query.limit(100), // Limita el número de usuarios si hay muchos
-        ],
-      );
-      return result.documents;
-    } on AppwriteException catch (e) {
-      print('UserRepository: Error getting all users: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('UserRepository: Unknown error getting all users: $e');
-      rethrow;
-    }
-  }
-
-  Future<Document> addUser(Map<String, dynamic> userData) async {
-    try {
-      final String newUserId = userData['userId'] ?? ID.unique();
-      return await _databases.createDocument(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
-        documentId: newUserId,
-        data: userData,
-        permissions: [
-          Permission.read(Role.any()),
-          Permission.write(Role.user(newUserId)),
-        ],
-      );
-    } on AppwriteException catch (e) {
-      print('UserRepository: Error adding user: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('UserRepository: Unknown error adding user: $e');
-      rethrow;
-    }
-  }
-
-  Future<Document> updateUser(
+  // Subir imagen de perfil
+  Future<String> uploadProfileImage(
     String userId,
-    Map<String, dynamic> userData,
+    Uint8List fileBytes,
+    String fileName,
   ) async {
     try {
-      return await _databases.updateDocument(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
-        documentId: userId,
-        data: userData,
+      final file = await _storage.createFile(
+        bucketId: AppwriteConstants.profileImagesBucket,
+        fileId: ID.unique(),
+        file: InputFile.fromBytes(bytes: fileBytes, filename: fileName),
       );
-    } on AppwriteException catch (e) {
-      print('UserRepository: Error updating user: ${e.message}');
-      rethrow;
-    } catch (e) {
-      print('UserRepository: Unknown error updating user: $e');
-      rethrow;
-    }
-  }
 
-  Future<void> deleteUser(String userId) async {
-    try {
-      await _databases.deleteDocument(
-        databaseId: _databaseId,
-        collectionId: _usersCollectionId,
-        documentId: userId,
-      );
-    } on AppwriteException catch (e) {
-      print('UserRepository: Error deleting user: ${e.message}');
-      rethrow;
+      return _storage
+          .getFileView(
+            bucketId: AppwriteConstants.profileImagesBucket,
+            fileId: file.$id,
+          )
+          .toString();
     } catch (e) {
-      print('UserRepository: Unknown error deleting user: $e');
+      print('Error uploading profile image: $e');
       rethrow;
     }
   }

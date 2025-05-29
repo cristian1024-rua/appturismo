@@ -1,85 +1,92 @@
-// lib/controllers/user_controller.dart
-import 'package:appwrite/models.dart'; // Si User es un modelo de Appwrite
+import 'package:appturismo/model/user_model.dart';
 import 'package:get/get.dart';
-import 'package:appturismo/repositories/user_repository.dart';
+import '../repositories/user_repository.dart';
+import 'package:image_picker/image_picker.dart';
 
 class UserController extends GetxController {
-  final UserRepository
-  _userRepository; // Renombrado a _userRepository para consistencia
-  RxList<Document> users =
-      <Document>[].obs; // Asumo que son documentos de Appwrite
-  RxBool isLoading = true.obs;
-  RxString errorMessage = ''.obs;
+  final UserRepository _userRepository;
+  final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
+  final RxBool isLoading = false.obs;
 
-  UserController({required UserRepository repository})
-    : _userRepository = repository; // Usamos el nombre 'repository'
+  UserController(this._userRepository);
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchAllUsers();
-  }
-
-  Future<void> fetchAllUsers() async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  // Cargar perfil de usuario
+  Future<void> loadUserProfile(String userId) async {
     try {
-      users.value =
-          await _userRepository.getAllUsers(); // Usa el método correcto
+      isLoading.value = true;
+      currentUser.value = await _userRepository.getUserProfile(userId);
     } catch (e) {
-      errorMessage.value = 'Error al cargar usuarios: $e';
-      print('UserController: Error fetching users: $e');
+      print('Error loading user profile: $e');
+      Get.snackbar('Error', 'No se pudo cargar el perfil');
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> addUser(Map<String, dynamic> userData) async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  // Crear perfil de usuario
+  Future<void> createProfile({
+    required String userId,
+    required String email,
+    required String username,
+  }) async {
     try {
-      await _userRepository.addUser(userData); // Usa el método correcto
-      fetchAllUsers(); // Recargar la lista
-      Get.snackbar('Éxito', 'Usuario añadido correctamente');
+      isLoading.value = true;
+      final user = UserModel(id: userId, username: username, email: email);
+      currentUser.value = await _userRepository.createUserProfile(user);
     } catch (e) {
-      errorMessage.value = 'Error al añadir usuario: $e';
-      Get.snackbar('Error', 'No se pudo añadir el usuario: $e');
-      print('UserController: Error adding user: $e');
+      print('Error creating user profile: $e');
+      Get.snackbar('Error', 'No se pudo crear el perfil');
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> updateUser(String userId, Map<String, dynamic> userData) async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  // Actualizar perfil
+  Future<void> updateProfile({String? username, String? bio}) async {
+    if (currentUser.value == null) return;
+
     try {
-      await _userRepository.updateUser(
-        userId,
-        userData,
-      ); // Usa el método correcto
-      fetchAllUsers(); // Recargar la lista
-      Get.snackbar('Éxito', 'Usuario actualizado correctamente');
+      isLoading.value = true;
+      final updates = <String, dynamic>{};
+      if (username != null) updates['username'] = username;
+      if (bio != null) updates['bio'] = bio;
+
+      currentUser.value = await _userRepository.updateUserProfile(
+        currentUser.value!.id,
+        updates,
+      );
+      Get.snackbar('Éxito', 'Perfil actualizado correctamente');
     } catch (e) {
-      errorMessage.value = 'Error al actualizar usuario: $e';
-      Get.snackbar('Error', 'No se pudo actualizar el usuario: $e');
-      print('UserController: Error updating user: $e');
+      print('Error updating profile: $e');
+      Get.snackbar('Error', 'No se pudo actualizar el perfil');
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> deleteUser(String userId) async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  // Limpiar perfil
+  void clearProfile() {
+    currentUser.value = null;
+  }
+
+  // Actualizar imagen de perfil
+  Future<void> updateProfileImage(XFile image) async {
+    if (currentUser.value == null) return;
+
     try {
-      await _userRepository.deleteUser(userId); // Usa el método correcto
-      fetchAllUsers(); // Recargar la lista
-      Get.snackbar('Éxito', 'Usuario eliminado correctamente');
+      isLoading.value = true;
+      final bytes = await image.readAsBytes();
+      final imageUrl = await _userRepository.uploadProfileImage(
+        currentUser.value!.id,
+        bytes,
+        image.name,
+      );
+
+      await updateProfile(username: currentUser.value!.username);
+      Get.snackbar('Éxito', 'Imagen de perfil actualizada');
     } catch (e) {
-      errorMessage.value = 'Error al eliminar usuario: $e';
-      Get.snackbar('Error', 'No se pudo eliminar el usuario: $e');
-      print('UserController: Error deleting user: $e');
+      print('Error updating profile image: $e');
+      Get.snackbar('Error', 'No se pudo actualizar la imagen');
     } finally {
       isLoading.value = false;
     }
