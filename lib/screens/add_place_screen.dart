@@ -22,6 +22,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final tDesc = TextEditingController();
   XFile? picked;
   String selectedCategory = 'other';
+  double? latitude;
+  double? longitude;
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +42,19 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
             children: [
               TextFormField(
                 controller: tTitle,
-                decoration: const InputDecoration(labelText: 'Título'),
+                decoration: const InputDecoration(
+                  labelText: 'Título',
+                  border: OutlineInputBorder(),
+                ),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: tDesc,
-                decoration: const InputDecoration(labelText: 'Descripción'),
+                decoration: const InputDecoration(
+                  labelText: 'Descripción',
+                  border: OutlineInputBorder(),
+                ),
                 maxLines: 3,
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
@@ -64,13 +72,21 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                 icon: const Icon(Icons.photo),
                 label: const Text('Seleccionar Imagen'),
                 onPressed: () async {
-                  final XFile? image = await picker.pickImage(
-                    source: ImageSource.gallery,
-                  );
-                  if (image != null) {
-                    setState(() {
-                      picked = image;
-                    });
+                  try {
+                    final XFile? image = await picker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (image != null) {
+                      setState(() {
+                        picked = image;
+                      });
+                    }
+                  } catch (e) {
+                    Get.snackbar(
+                      'Error',
+                      'No se pudo seleccionar la imagen: $e',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
                   }
                 },
               ),
@@ -92,46 +108,83 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       Get.find<LocationController>().currentLocation.value;
                   if (loc != null) {
                     setState(() {
+                      latitude = loc.latitude;
+                      longitude = loc.longitude;
                       tDesc.text +=
-                          '\n(${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)})';
+                          '\nUbicación: (${latitude!.toStringAsFixed(4)}, ${longitude!.toStringAsFixed(4)})';
                     });
+                  } else {
+                    Get.snackbar(
+                      'Error',
+                      'No se pudo obtener la ubicación',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
                   }
                 },
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                child: const Text('Guardar'),
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
-                  var user = auth.user.value;
-                  if (user == null) return;
 
-                  String imageUrl = '';
-                  if (picked != null) {
-                    var f = await storage.uploadImage(File(picked!.path));
-                    imageUrl =
-                        'https://fra.cloud.appwrite.io/v1/storage/buckets/${storage.bucketId}/files/${f.$id}/view';
+                  final user = auth.user.value;
+                  if (user == null) {
+                    Get.snackbar(
+                      'Error',
+                      'Debe iniciar sesión para agregar lugares',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                    return;
                   }
 
-                  var newPlace = Place(
-                    id: '',
-                    title: tTitle.text.trim(),
-                    description: tDesc.text.trim(),
-                    imageUrl: imageUrl,
-                    latitude: 0,
-                    longitude: 0,
-                    createdBy: user.$id,
-                    name: tTitle.text.trim(),
-                    category: selectedCategory,
-                  );
-                  await placeCtrl.addPlace(newPlace);
-                  Get.back();
+                  try {
+                    String imageUrl = '';
+                    if (picked != null) {
+                      final f = await storage.uploadImage(File(picked!.path));
+                      imageUrl =
+                          'https://fra.cloud.appwrite.io/v1/storage/buckets/${storage.bucketId}/files/${f.$id}/view';
+                    }
+
+                    final newPlace = Place(
+                      id: '',
+                      title: tTitle.text.trim(),
+                      description: tDesc.text.trim(),
+                      imageUrl: imageUrl,
+                      latitude: latitude ?? 0,
+                      longitude: longitude ?? 0,
+                      createdBy: user.$id,
+                      name: tTitle.text.trim(),
+                      category: selectedCategory,
+                    );
+
+                    await placeCtrl.addPlace(newPlace);
+                    Get.back();
+                    Get.snackbar(
+                      'Éxito',
+                      'Lugar agregado correctamente',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                  } catch (e) {
+                    Get.snackbar(
+                      'Error',
+                      'No se pudo agregar el lugar: $e',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                  }
                 },
+                child: const Text('Guardar'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    tTitle.dispose();
+    tDesc.dispose();
+    super.dispose();
   }
 }

@@ -1,27 +1,17 @@
-import 'package:appturismo/controllers/map_controller.dart';
-import 'package:get/get.dart';
-import 'package:appturismo/repositories/place_repository.dart';
 import 'package:appturismo/model/place_model.dart';
+import 'package:get/get.dart';
+import '../repositories/place_repository.dart';
 
 class PlaceController extends GetxController {
-  final PlaceRepository _repo;
+  final PlaceRepository _repository;
   final RxList<Place> places = <Place>[].obs;
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
-  final RxSet<String> selectedCategories = <String>{}.obs;
+  final RxString searchQuery = ''.obs;
+  final RxList<String> selectedCategories = <String>[].obs;
   final RxDouble searchRadius = 10.0.obs;
 
-  static const List<String> availableCategories = [
-    'restaurant',
-    'hotel',
-    'museum',
-    'park',
-    'beach',
-    'monument',
-    'other',
-  ];
-
-  PlaceController(this._repo);
+  PlaceController(this._repository);
 
   @override
   void onInit() {
@@ -29,39 +19,29 @@ class PlaceController extends GetxController {
     fetchPlaces();
   }
 
-  void toggleCategory(String category) {
-    if (selectedCategories.contains(category)) {
-      selectedCategories.remove(category);
-    } else {
-      selectedCategories.add(category);
-    }
-    fetchPlaces();
-  }
-
   Future<void> fetchPlaces({
+    String?
+    searchQuery, // Cambiado de query a searchQuery para coincidir con el uso
     double? userLat,
     double? userLon,
-    String? searchQuery,
   }) async {
     try {
       isLoading.value = true;
       error.value = '';
 
-      final docs = await _repo.getPlaces(
+      final results = await _repository.getPlaces(
+        query: searchQuery,
+        categories: selectedCategories.isNotEmpty ? selectedCategories : null,
         userLat: userLat,
         userLon: userLon,
-        searchQuery: searchQuery,
-        categories:
-            selectedCategories.isEmpty ? null : selectedCategories.toList(),
+        radius: searchRadius.value,
       );
 
-      places.value = docs.map((doc) => Place.fromDocument(doc)).toList();
+      if (results.isEmpty) {
+        error.value = 'No se encontraron lugares turísticos';
+      }
 
-      // Actualizar marcadores en el mapa si está disponible
-      try {
-        final mapCtrl = Get.find<MapController>();
-        mapCtrl.updateMarkers(places);
-      } catch (_) {}
+      places.value = results;
     } catch (e) {
       error.value = 'Error al cargar lugares: $e';
       print('Error fetching places: $e');
@@ -74,9 +54,11 @@ class PlaceController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-      final doc = await _repo.addPlace(place);
-      final newPlace = Place.fromDocument(doc);
+
+      final newPlace = await _repository.addPlace(place);
       places.add(newPlace);
+
+      Get.back();
       Get.snackbar(
         'Éxito',
         'Lugar agregado correctamente',
@@ -84,15 +66,41 @@ class PlaceController extends GetxController {
       );
     } catch (e) {
       error.value = 'Error al agregar lugar: $e';
-      print('Error adding place: $e');
       Get.snackbar(
         'Error',
-        'No se pudo agregar el lugar',
+        'No se pudo agregar el lugar: $e',
         snackPosition: SnackPosition.BOTTOM,
       );
-      rethrow;
     } finally {
       isLoading.value = false;
     }
   }
+
+  void toggleCategory(String category) {
+    if (selectedCategories.contains(category)) {
+      selectedCategories.remove(category);
+    } else {
+      selectedCategories.add(category);
+    }
+    fetchPlaces();
+  }
+
+  void updateSearchRadius(double value) {
+    searchRadius.value = value;
+    fetchPlaces();
+  }
+
+  void clearFilters() {
+    selectedCategories.clear();
+    searchQuery.value = '';
+    searchRadius.value = 10.0;
+    fetchPlaces();
+  }
+
+  static const List<String> availableCategories = [
+    'restaurant',
+    'hotel',
+    'attraction',
+    'other',
+  ];
 }

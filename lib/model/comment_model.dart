@@ -1,4 +1,3 @@
-// lib/model/comment_model.dart
 import 'package:appwrite/models.dart';
 
 class CommentModel {
@@ -6,40 +5,34 @@ class CommentModel {
   final String userId;
   final String placeId;
   final String text;
-  final DateTime createdAt;
+  final String username;
 
   CommentModel({
     required this.id,
     required this.userId,
     required this.placeId,
     required this.text,
-    required this.createdAt,
-    required username,
-    required String content,
+    required this.username,
   });
 
   factory CommentModel.fromDocument(Document doc) {
     return CommentModel(
       id: doc.$id,
-      userId: doc.data['userId'] as String,
-      placeId: doc.data['placeId'] as String,
-      text: doc.data['text'] as String,
-      createdAt: DateTime.parse(doc.$createdAt),
-      username: null,
-      content: '',
+      userId: doc.data['userId'] ?? '',
+      placeId: doc.data['placeId'] ?? '',
+      text: doc.data['text'] ?? '',
+      username: doc.data['username'] ?? 'Anónimo',
     );
   }
-
-  String? get content => null;
-
-  get username => null;
 
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
       'placeId': placeId,
       'text': text,
-      'createdAt': createdAt.toIso8601String(),
+      'username': username,
+      'createdAt':
+          DateTime.now().toIso8601String(), // Agregamos el campo createdAt
     };
   }
 }

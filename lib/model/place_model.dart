@@ -10,7 +10,6 @@ class Place {
   final String createdBy;
   final String name;
   final String category;
-  final DateTime? createdAt;
 
   Place({
     required this.id,
@@ -21,26 +20,24 @@ class Place {
     required this.longitude,
     required this.createdBy,
     required this.name,
-    this.category = 'other',
-    this.createdAt,
+    required this.category,
   });
 
   factory Place.fromDocument(Document doc) {
     return Place(
       id: doc.$id,
-      title: doc.data['title'] as String,
-      description: doc.data['description'] as String,
-      imageUrl: doc.data['imageUrl'] as String,
-      latitude: (doc.data['latitude'] as num).toDouble(),
-      longitude: (doc.data['longitude'] as num).toDouble(),
-      createdBy: doc.data['createdBy'] as String,
-      name: doc.data['title'] as String,
-      category: doc.data['category'] as String? ?? 'other',
-      createdAt: DateTime.tryParse(doc.$createdAt),
+      title: doc.data['title'] ?? '',
+      description: doc.data['description'] ?? '',
+      imageUrl: doc.data['imageUrl'] ?? '',
+      latitude: (doc.data['latitude'] ?? 0).toDouble(),
+      longitude: (doc.data['longitude'] ?? 0).toDouble(),
+      createdBy: doc.data['createdBy'] ?? '',
+      name: doc.data['name'] ?? '',
+      category: doc.data['category'] ?? 'other',
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
       'title': title,
       'description': description,
@@ -48,6 +45,7 @@ class Place {
       'latitude': latitude,
       'longitude': longitude,
       'createdBy': createdBy,
+      'name': name,
       'category': category,
     };
   }

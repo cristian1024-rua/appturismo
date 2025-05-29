@@ -1,13 +1,18 @@
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:appturismo/model/place_model.dart';
 
 class PlaceMarkerWidget {
   static Marker buildMarker(Place place) {
     return Marker(
-      markerId: MarkerId(place.id),
-      position: LatLng(place.latitude, place.longitude),
-      infoWindow: InfoWindow(title: place.title, snippet: place.description),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      point: LatLng(place.latitude, place.longitude),
+      width: 40,
+      height: 40,
+      child: GestureDetector(
+        onTap: () {},
+        child: const Icon(Icons.location_on, color: Colors.blue, size: 40),
+      ),
     );
   }
 }

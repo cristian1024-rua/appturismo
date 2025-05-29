@@ -1,5 +1,5 @@
+import 'package:appturismo/model/comment_model.dart';
 import 'package:appwrite/appwrite.dart';
-import 'package:appwrite/models.dart';
 import 'package:appturismo/core/constants/appwrite_constants.dart';
 import 'package:appturismo/model/place_model.dart';
 
@@ -8,24 +8,23 @@ class PlaceRepository {
 
   PlaceRepository(this._db);
 
-  Future<List<Document>> getPlaces({
+  Future<List<Place>> getPlaces({
+    String? query,
+    List<String>? categories,
     double? userLat,
     double? userLon,
-    String? searchQuery,
-    List<String>? categories, // Agregar este parámetro
+    required double radius,
   }) async {
     try {
       List<String> queries = [];
 
-      if (searchQuery != null && searchQuery.isNotEmpty) {
-        queries.add(Query.search('title', searchQuery));
+      if (query != null && query.isNotEmpty) {
+        queries.add(Query.search('title', query));
       }
 
       if (categories != null && categories.isNotEmpty) {
         queries.add(Query.equal('category', categories));
       }
-
-      queries.add(Query.orderDesc('\$createdAt'));
 
       final result = await _db.listDocuments(
         databaseId: AppwriteConstants.databaseId,
@@ -33,27 +32,75 @@ class PlaceRepository {
         queries: queries,
       );
 
-      return result.documents;
+      return result.documents.map((doc) => Place.fromDocument(doc)).toList();
     } catch (e) {
-      print('Error en PlaceRepository.getPlaces: $e');
+      print('Error getting places: $e');
       rethrow;
     }
   }
 
-  Future<Document> addPlace(Place place) async {
+  // Agregar el método que falta y que es requerido por PlaceController
+  Future<Place> addPlace(Place place) async {
     try {
-      return await _db.createDocument(
+      final document = await _db.createDocument(
         databaseId: AppwriteConstants.databaseId,
         collectionId: AppwriteConstants.collectionPlaces,
         documentId: ID.unique(),
-        data: place.toMap(),
+        data: place.toJson(),
         permissions: [
           Permission.read(Role.any()),
           Permission.write(Role.user(place.createdBy)),
+          Permission.update(Role.user(place.createdBy)),
+          Permission.delete(Role.user(place.createdBy)),
         ],
       );
+
+      return Place.fromDocument(document);
     } catch (e) {
-      print('Error creating place document: $e');
+      print('Error adding place: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> addComment(CommentModel comment) async {
+    try {
+      await _db.createDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.collectionComments,
+        documentId: ID.unique(),
+        data:
+            comment.toJson(), // El campo createdAt ya está incluido en toJson()
+      );
+    } catch (e) {
+      print('Error adding comment: $e');
+      rethrow;
+    }
+  }
+
+  // Opcional: Agregar métodos para actualizar y eliminar lugares
+  Future<void> updatePlace(Place place) async {
+    try {
+      await _db.updateDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.collectionPlaces,
+        documentId: place.id,
+        data: place.toJson(),
+      );
+    } catch (e) {
+      print('Error updating place: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deletePlace(String placeId) async {
+    try {
+      await _db.deleteDocument(
+        databaseId: AppwriteConstants.databaseId,
+        collectionId: AppwriteConstants.collectionPlaces,
+        documentId: placeId,
+      );
+    } catch (e) {
+      print('Error deleting place: $e');
       rethrow;
     }
   }

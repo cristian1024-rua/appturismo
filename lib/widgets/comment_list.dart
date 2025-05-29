@@ -1,25 +1,27 @@
-// lib/widgets/comment_list.dart
 import 'package:flutter/material.dart';
 import 'package:appturismo/model/comment_model.dart';
 
 class CommentList extends StatelessWidget {
   final List<CommentModel> comments;
-  const CommentList({super.key, required this.comments});
+
+  const CommentList({Key? key, required this.comments}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     if (comments.isEmpty) {
       return const Center(child: Text('Sin comentarios aún'));
     }
+
     return ListView.builder(
       shrinkWrap: true,
       itemCount: comments.length,
-      itemBuilder: (_, idx) {
-        final c = comments[idx];
+      itemBuilder: (_, index) {
+        final comment = comments[index];
         return ListTile(
-          title: Text(c.text),
+          leading: const CircleAvatar(child: Icon(Icons.person)),
+          title: Text(comment.text),
           subtitle: Text(
-            'Por ${c.username} el ${c.createdAt.toLocal().toIso8601String().split("T")[0]}',
+            'Por ${comment.username}', // Removido el formateo de fecha ya que no tenemos createdAt
           ),
         );
       },

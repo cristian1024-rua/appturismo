@@ -1,28 +1,78 @@
-import 'package:appturismo/controllers/place_controller.dart';
-import 'package:appturismo/model/place_model.dart';
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:appturismo/model/place_model.dart';
 
 class MapController extends GetxController {
-  final Rxn<Position> currentPosition = Rxn<Position>();
-  final RxBool isLoading = true.obs;
-  final RxString errorMessage = ''.obs;
-  late GoogleMapController mapCtrl;
-  final RxSet<Marker> markers = <Marker>{}.obs;
-  final RxDouble zoomLevel = 12.0.obs;
-  final RxSet<String> selectedFilters = <String>{}.obs;
+  // Observables
+  final RxBool isLoading = false.obs;
+  final Rx<Position?> currentPosition = Rx<Position?>(null);
+  final RxList<Place> places = <Place>[].obs;
+  final RxList<String> selectedFilters = <String>[].obs;
+  final RxDouble zoom = 13.0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _determinePosition();
+    getCurrentLocation();
   }
 
-  void clearFilters() {
-    selectedFilters.clear();
-    final placeCtrl = Get.find<PlaceController>();
-    updateMarkers(placeCtrl.places);
+  // Cambié de privado (_getCurrentLocation) a público (getCurrentLocation)
+  Future<void> getCurrentLocation() async {
+    try {
+      isLoading.value = true;
+
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        Get.snackbar(
+          'Error',
+          'El servicio de ubicación está deshabilitado',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Get.snackbar(
+            'Error',
+            'Permisos de ubicación denegados',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        Get.snackbar(
+          'Error',
+          'Los permisos de ubicación están permanentemente denegados',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition();
+      currentPosition.value = position;
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Error al obtener la ubicación: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void updateZoom(double newZoom) {
+    zoom.value = newZoom;
+  }
+
+  void addPlace(Place place) {
+    places.add(place);
   }
 
   void toggleFilter(String filter) {
@@ -31,93 +81,25 @@ class MapController extends GetxController {
     } else {
       selectedFilters.add(filter);
     }
-
-    final placeCtrl = Get.find<PlaceController>();
-    final filteredPlaces =
-        selectedFilters.isEmpty
-            ? placeCtrl.places
-            : placeCtrl.places
-                .where((p) => selectedFilters.contains(p.category))
-                .toList();
-    updateMarkers(filteredPlaces);
+    updatePlaces();
   }
 
-  Future<void> _determinePosition() async {
-    try {
-      isLoading.value = true;
-      bool enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled) {
-        errorMessage.value =
-            'Por favor activa tu GPS para una mejor experiencia';
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          errorMessage.value = 'Necesitamos permisos de ubicación';
-          return;
-        }
-      }
-
-      var p = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      currentPosition.value = p;
-
-      if (mapCtrl != null) {
-        mapCtrl.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            LatLng(p.latitude, p.longitude),
-            zoomLevel.value,
-          ),
-        );
-      }
-    } catch (e) {
-      errorMessage.value = e.toString();
-    } finally {
-      isLoading.value = false;
-    }
+  void clearFilters() {
+    selectedFilters.clear();
+    updatePlaces();
   }
 
-  void updateMarkers(List<Place> places) {
-    markers.clear();
-    for (var place in places) {
-      if (selectedFilters.isEmpty || selectedFilters.contains(place.category)) {
-        markers.add(
-          Marker(
-            markerId: MarkerId(place.id),
-            position: LatLng(place.latitude, place.longitude),
-            infoWindow: InfoWindow(
-              title: place.title,
-              snippet: place.description,
-            ),
-            onTap: () => Get.toNamed('/detail', arguments: place),
-          ),
-        );
-      }
-    }
+  void updatePlaces() {
+    // Aquí implementarías la lógica para filtrar lugares
+    // según los filtros seleccionados
   }
 
-  void onMapCreated(GoogleMapController controller) {
-    mapCtrl = controller;
-    if (currentPosition.value != null) {
-      mapCtrl.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(
-            currentPosition.value!.latitude,
-            currentPosition.value!.longitude,
-          ),
-          zoomLevel.value,
-        ),
-      );
-    }
+  LatLng get currentLatLng {
+    return currentPosition.value != null
+        ? LatLng(
+          currentPosition.value!.latitude,
+          currentPosition.value!.longitude,
+        )
+        : const LatLng(1.2076, -77.2638); // Ubicación por defecto
   }
-
-  void onCameraMove(CameraPosition position) {
-    zoomLevel.value = position.zoom;
-  }
-
-  Future<void> refreshLocation() => _determinePosition();
 }

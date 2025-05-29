@@ -1,96 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' hide MapController;
 import 'package:get/get.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:appturismo/controllers/map_controller.dart';
-import 'package:appturismo/controllers/place_controller.dart';
+import 'package:appturismo/model/place_model.dart';
+import 'package:appturismo/widgets/map_filters.dart'; // Añade esta importación
 
-class MapScreen extends StatelessWidget {
+class MapScreen extends GetView<MapController> {
   const MapScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final mapCtrl = Get.find<MapController>();
-    final placeCtrl = Get.find<PlaceController>();
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mapa de Lugares'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            onPressed: () => mapCtrl.refreshLocation(),
+      appBar: AppBar(title: const Text('Mapa de Lugares')),
+      body: Stack(
+        children: [
+          Obx(
+            () => FlutterMap(
+              options: MapOptions(
+                initialCenter: controller.currentLatLng,
+                initialZoom: controller.zoom.value,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.appturismo',
+                ),
+                MarkerLayer(markers: _buildMarkers(controller.places)),
+              ],
+            ),
+          ),
+          // Asegúrate de que MapFilters esté en un widget Positioned
+          const Positioned(
+            top: 8,
+            left: 8,
+            right: 8,
+            child:
+                MapFilters(), // Ahora MapFilters es reconocido como un widget
           ),
         ],
       ),
-      body: Obx(() {
-        if (mapCtrl.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (mapCtrl.errorMessage.value.isNotEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(mapCtrl.errorMessage.value),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: mapCtrl.refreshLocation,
-                  child: const Text('Reintentar'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final position = mapCtrl.currentPosition.value;
-        if (position == null) {
-          return const Center(child: Text('No se pudo obtener tu ubicación'));
-        }
-
-        return Stack(
-          children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: LatLng(position.latitude, position.longitude),
-                zoom: mapCtrl.zoomLevel.value,
-              ),
-              onMapCreated: mapCtrl.onMapCreated,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              markers: mapCtrl.markers,
-              onCameraMove: mapCtrl.onCameraMove,
-              mapType: MapType.normal,
-            ),
-            Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: Card(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Buscar lugares...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    final pos = mapCtrl.currentPosition.value;
-                    placeCtrl.fetchPlaces(
-                      userLat: pos?.latitude,
-                      userLon: pos?.longitude,
-                      searchQuery: value,
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      }),
+      floatingActionButton: FloatingActionButton(
+        onPressed: controller.getCurrentLocation,
+        child: const Icon(Icons.my_location),
+      ),
     );
+  }
+
+  List<Marker> _buildMarkers(List<Place> places) {
+    return places.map((place) {
+      return Marker(
+        point: LatLng(place.latitude, place.longitude),
+        width: 40,
+        height: 40,
+        child: GestureDetector(
+          onTap: () => Get.toNamed('/detail', arguments: place),
+          child: Icon(
+            Icons.location_on,
+            color: Get.theme.primaryColor,
+            size: 40,
+          ),
+        ),
+      );
+    }).toList();
   }
 }

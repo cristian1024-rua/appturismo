@@ -5,15 +5,35 @@ import 'package:appturismo/controllers/location_controller.dart';
 import 'package:appturismo/controllers/favorites_controller.dart';
 import 'package:appturismo/widgets/place_card.dart';
 
-class PlacesScreen extends StatelessWidget {
-  const PlacesScreen({Key? key}) : super(key: key);
+class PlacesScreen extends StatefulWidget {
+  const PlacesScreen({super.key});
+
+  @override
+  State<PlacesScreen> createState() => _PlacesScreenState();
+}
+
+class _PlacesScreenState extends State<PlacesScreen> {
+  final searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _performInitialSearch();
+    });
+  }
+
+  void _performInitialSearch() {
+    final placeCtrl = Get.find<PlaceController>();
+    final locCtrl = Get.find<LocationController>();
+    _performSearch('', placeCtrl, locCtrl);
+  }
 
   @override
   Widget build(BuildContext context) {
     final placeCtrl = Get.find<PlaceController>();
     final locCtrl = Get.find<LocationController>();
     final favCtrl = Get.find<FavoritesController>();
-    final searchCtrl = TextEditingController();
 
     return Scaffold(
       appBar: AppBar(
@@ -29,6 +49,10 @@ class PlacesScreen extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Get.toNamed('/add'),
+        child: const Icon(Icons.add),
+      ),
       body: Column(
         children: [
           Padding(
@@ -42,7 +66,7 @@ class PlacesScreen extends StatelessWidget {
                   icon: const Icon(Icons.clear),
                   onPressed: () {
                     searchCtrl.clear();
-                    _performSearch(searchCtrl.text, placeCtrl, locCtrl);
+                    _performSearch('', placeCtrl, locCtrl);
                   },
                 ),
                 border: OutlineInputBorder(
@@ -129,5 +153,11 @@ class PlacesScreen extends StatelessWidget {
       userLon: pos?.longitude,
       searchQuery: query,
     );
+  }
+
+  @override
+  void dispose() {
+    searchCtrl.dispose();
+    super.dispose();
   }
 }

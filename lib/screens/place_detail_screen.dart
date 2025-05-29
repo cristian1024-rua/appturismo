@@ -1,5 +1,3 @@
-// lib/screens/place_detail_screen.dart
-import 'package:appwrite/models.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:appturismo/controllers/comment_controller.dart';
@@ -11,30 +9,63 @@ import 'package:appturismo/widgets/comment_input.dart';
 
 class PlaceDetailScreen extends StatelessWidget {
   final Place place;
-  PlaceDetailScreen({required this.place, super.key});
-
   final CommentController commentCtrl = Get.find<CommentController>();
   final AuthController authCtrl = Get.find<AuthController>();
   final TextEditingController _commentController = TextEditingController();
 
+  PlaceDetailScreen({required this.place, super.key});
+
   @override
   Widget build(BuildContext context) {
+    // Cargar comentarios al entrar a la pantalla
     commentCtrl.fetchComments(place.id);
 
     return Scaffold(
       appBar: AppBar(title: Text(place.title)),
       body: Column(
         children: [
-          // ... imagen y descripción omitidos por brevedad ...
+          // Imagen del lugar
+          if (place.imageUrl.isNotEmpty)
+            Image.network(
+              place.imageUrl,
+              height: 200,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+
+          // Detalles del lugar
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  place.title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(place.description),
+              ],
+            ),
+          ),
+
           const Divider(),
+
+          // Sección de comentarios
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Comentarios:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.comment),
+                SizedBox(width: 8),
+                Text(
+                  'Comentarios',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ),
 
@@ -46,19 +77,17 @@ class PlaceDetailScreen extends StatelessWidget {
               if (commentCtrl.error.value.isNotEmpty) {
                 return Center(child: Text('Error: ${commentCtrl.error.value}'));
               }
-              if (commentCtrl.comments.isEmpty) {
-                return const Center(child: Text('No hay comentarios aún.'));
-              }
               return CommentList(comments: commentCtrl.comments);
             }),
           ),
 
+          // Input para nuevo comentario
           Padding(
             padding: const EdgeInsets.all(8),
             child: CommentInput(
               controller: _commentController,
               onSend: () {
-                final User? user = authCtrl.user.value;
+                final user = authCtrl.user.value;
                 if (user == null) {
                   Get.snackbar(
                     'Error',
@@ -67,23 +96,25 @@ class PlaceDetailScreen extends StatelessWidget {
                   );
                   return;
                 }
+
                 final text = _commentController.text.trim();
                 if (text.isEmpty) {
                   Get.snackbar(
-                    'Advertencia',
+                    'Error',
                     'El comentario no puede estar vacío',
+                    snackPosition: SnackPosition.BOTTOM,
                   );
                   return;
                 }
+
                 final newComment = CommentModel(
                   id: '',
-                  placeId: place.id,
                   userId: user.$id,
-                  username: user.name.isNotEmpty ? user.name : 'Anónimo',
+                  placeId: place.id,
                   text: text,
-                  createdAt: DateTime.now(),
-                  content: '',
+                  username: user.name.isNotEmpty ? user.name : 'Anónimo',
                 );
+
                 commentCtrl.addComment(newComment);
                 _commentController.clear();
               },
